@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DDS to PNG Converter (HW Accelerated)</title>
+<title>DDS to PNG Converter (Pro 3D Edition)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --bg: #0a0c0f;
@@ -134,6 +135,17 @@
   }
   .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
   .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  
+  .btn-success {
+    flex: 1; min-width: 180px; padding: 14px 28px;
+    background: var(--success); color: var(--bg); border: none;
+    font-family: 'Rajdhani', sans-serif; font-size: 1rem;
+    font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer; border-radius: 3px; transition: all 0.15s;
+  }
+  .btn-success:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-success:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
   .btn-secondary {
     padding: 14px 24px; background: transparent; color: var(--dim);
     border: 1px solid var(--border); font-family: 'Rajdhani', sans-serif;
@@ -173,16 +185,15 @@
     font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
     color: var(--dim); letter-spacing: 0.1em;
   }
-  .footer a { color: var(--accent); text-decoration: none; }
 </style>
 </head>
 <body>
 <div class="container">
 
   <div class="header">
-    <div class="label">// texture utility v2.1</div>
+    <div class="label">// texture utility v2.2 - 3D batching</div>
     <h1>DDS &rarr; PNG</h1>
-    <p class="sub">Convert DirectDraw Surface textures to PNG &mdash; runs entirely in your browser</p>
+    <p class="sub">Fast parsing for ALBD/Normal/Roughness maps &mdash; runs entirely in your browser</p>
   </div>
 
   <div class="drop-zone" id="dropZone">
@@ -205,6 +216,7 @@
     <div class="queue" id="queue"></div>
     <div class="actions">
       <button class="btn-primary" id="convertBtn" onclick="convertAll()">CONVERT ALL</button>
+      <button class="btn-success" id="dlAllBtn" style="display:none" onclick="downloadAll()">DOWNLOAD ALL (.ZIP)</button>
       <button class="btn-secondary" onclick="clearQueue()">CLEAR</button>
     </div>
     <div class="progress-wrap" id="progressWrap">
@@ -215,7 +227,7 @@
 
   <div class="info-box">
     <h3>Supported Formats</h3>
-    <p>Supports the most common DDS texture formats. Features ultra-fast WebGL GPU Hardware Decoding for instant conversions.</p>
+    <p>Supports the most common DDS texture formats. Features ultra-fast WebGL GPU Hardware Decoding for instant conversions. Optimized for Character Creator & major 3D suites.</p>
     <div class="tag-list">
       <span class="tag">DXT1 / BC1</span>
       <span class="tag">DXT3 / BC2</span>
@@ -223,14 +235,12 @@
       <span class="tag">BC4 / BC5</span>
       <span class="tag">BC7 (HW Decoder)</span>
       <span class="tag">RGBA8 / BGRA8</span>
-      <span class="tag">RGB8</span>
-      <span class="tag">A8 / L8</span>
       <span class="tag">DX10 header</span>
     </div>
   </div>
 
   <div class="footer">
-    100% client-side &middot; WebGL Hardware Acceleration &middot; no upload
+    100% client-side &middot; WebGL Hardware Acceleration &middot; Batch Zip Export
   </div>
 
 </div>
@@ -280,7 +290,7 @@ function crc32(buf, off, len){
 function u32be(v){ return [(v>>>24)&0xff,(v>>>16)&0xff,(v>>>8)&0xff,v&0xff]; }
 
 // ============================================================
-// Global render contexts (Prevents Memory Exhaustion / Crashes)
+// Global render contexts 
 // ============================================================
 const glCanvas = document.createElement('canvas');
 let gl = null;
@@ -384,13 +394,11 @@ function maskShift(m){ if(!m) return 0; let s=0,v=m; while(!(v&1)){v>>>=1;s++;} 
 function maskMax(m){ if(!m) return 255; let v=m>>>maskShift(m),b=0; while(v){b+=v&1;v>>>=1;} return (1<<b)-1; }
 
 // ============================================================
-// DDS Parser
+// DDS Parser & Header logic relaxation
 // ============================================================
 function parseDDS(buffer) {
   const view=new DataView(buffer), bytes=new Uint8Array(buffer);
   if(view.getUint32(0,true)!==0x20534444) throw new Error('Not a valid DDS file');
-  const hdrSize=view.getUint32(4,true);
-  if(hdrSize!==124&&hdrSize!==128) throw new Error('Unexpected DDS header size: '+hdrSize);
 
   const height=view.getUint32(12,true), width=view.getUint32(16,true);
   if(!width||!height||width>16384||height>16384) throw new Error('Invalid dimensions: '+width+'x'+height);
@@ -418,22 +426,16 @@ function parseDDS(buffer) {
     else if(isDX10){
       const fmt=view.getUint32(128,true);
       switch(fmt){
-        case 70: format = 'DXT1'; blockSize = 8; break;
-        case 71: format = 'DXT1_SRGB'; blockSize = 8; isSRGB=true; break;
-        case 73: format = 'DXT3'; blockSize = 16; break;
-        case 74: format = 'DXT3_SRGB'; blockSize = 16; isSRGB=true; break;
-        case 76: format = 'DXT5'; blockSize = 16; break;
-        case 77: format = 'DXT5_SRGB'; blockSize = 16; isSRGB=true; break;
-        case 79: case 80: format = 'BC4'; blockSize = 8; isDataMap = true; break;
-        case 82: case 83: format = 'BC5'; blockSize = 16; isDataMap = true; break;
-        case 98: format = 'BC7'; blockSize = 16; break;
-        case 99: format = 'BC7_SRGB'; blockSize = 16; isSRGB=true; break;
-        case 28: format = 'RGBA8'; isCompressed = false; bpp = 4; break;
-        case 29: format = 'RGBA8_SRGB'; isCompressed = false; bpp = 4; isSRGB=true; break;
-        case 87: format = 'BGRA8'; isCompressed = false; bpp = 4; break;
-        case 91: format = 'BGRA8_SRGB'; isCompressed = false; bpp = 4; isSRGB=true; break;
-        case 88: format = 'BGRX8'; isCompressed = false; bpp = 4; break;
-        case 93: format = 'BGRX8_SRGB'; isCompressed = false; bpp = 4; isSRGB=true; break;
+        case 70: case 71: case 72: format = 'DXT1'; blockSize = 8; isSRGB=(fmt===71); break;
+        case 73: case 74: case 75: format = 'DXT3'; blockSize = 16; isSRGB=(fmt===74); break;
+        case 76: case 77: case 78: format = 'DXT5'; blockSize = 16; isSRGB=(fmt===77); break;
+        case 79: case 80: case 81: format = 'BC4'; blockSize = 8; isDataMap=true; break;
+        case 82: case 83: case 84: format = 'BC5'; blockSize = 16; isDataMap=true; break;
+        case 94: case 95: case 96: format = 'BC6H'; blockSize = 16; break;
+        case 97: case 98: case 99: format = 'BC7'; blockSize = 16; isSRGB=(fmt===99); break;
+        case 28: case 29: format = 'RGBA8'; isCompressed = false; bpp = 4; isSRGB=(fmt===29); break;
+        case 87: case 91: format = 'BGRA8'; isCompressed = false; bpp = 4; isSRGB=(fmt===91); break;
+        case 88: case 93: format = 'BGRX8'; isCompressed = false; bpp = 4; isSRGB=(fmt===93); break;
         case 61: format = 'R8'; isCompressed = false; bpp = 1; isDataMap = true; break;
         case 49: format = 'RG8'; isCompressed = false; bpp = 2; isDataMap = true; break;
         default: throw new Error('Unsupported DXGI_FORMAT: '+fmt);
@@ -452,19 +454,23 @@ function parseDDS(buffer) {
     throw new Error('Unsupported pixel format: 0x'+pfFlags.toString(16));
   }
 
+  // Relaxed data size check to handle truncated blocks common in 3D exports
   let dataSize = 0;
   if(isCompressed) {
-    dataSize = (Math.ceil(width/4)|0) * (Math.ceil(height/4)|0) * blockSize;
+    dataSize = (Math.max(1, Math.ceil(width/4))|0) * (Math.max(1, Math.ceil(height/4))|0) * blockSize;
   } else dataSize = width * height * bpp;
   
-  if (dataSize > src.length) throw new Error('DDS data truncated or invalid dimension size.');
+  if (dataSize > src.length) {
+    console.warn('DDS file size mismatch or missing padding. Fixing to prevent crash.');
+    dataSize = src.length; 
+  }
   const mip0Data = src.subarray(0, dataSize);
 
   return { width, height, format, isSRGB, isDataMap, isCompressed, mip0Data, bpp, rMask, gMask, bMask, aMask, src };
 }
 
 // ============================================================
-// WebGL HW Decoder (Ultra Fast, Zero Freeze)
+// WebGL HW Decoder 
 // ============================================================
 function getExt(gl, names) {
   for(const n of names) { const ext = gl.getExtension(n); if(ext) return ext; }
@@ -495,7 +501,7 @@ function decodeWithWebGL(info) {
     extConst = 'COMPRESSED_RED_GREEN_RGTC2_EXT'; swizzle = 2.0;
   } else if (info.format.startsWith('BC7')) {
     extStr = ['EXT_texture_compression_bptc', 'WEBGL_compressed_texture_bptc'];
-    extConst = 'COMPRESSED_RGBA_BPTC_UNORM_EXT'; // Always process UNORM to get raw byte output
+    extConst = 'COMPRESSED_RGBA_BPTC_UNORM_EXT'; 
   }
   
   const ext = getExt(gl, extStr);
@@ -545,7 +551,7 @@ function decodeWithWebGL(info) {
     gl.deleteTexture(tex); gl.deleteBuffer(quad); gl.deleteProgram(prog); gl.deleteShader(vs); gl.deleteShader(fs);
     return new Uint8ClampedArray(outData.buffer);
   } catch(e) {
-    console.warn("WebGL decode failed, falling back to software:", e);
+    console.warn("WebGL decode failed:", e);
     return null;
   }
 }
@@ -565,7 +571,7 @@ function decodeSoftware(info) {
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4) bc4Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
     } else if (info.format === 'BC5') {
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4) bc5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
-    } else throw new Error('Software decoding not implemented for ' + info.format + ' (Hardware / WebGL strictly required)');
+    } else throw new Error('Software decoding not implemented for ' + info.format + '. Hardware / WebGL strictly required.');
   } else {
     if (info.format === 'UNCOMPRESSED_MASK') {
       const bpp = info.bpp;
@@ -626,7 +632,6 @@ async function encodeAsPNG(data,width,height,isSRGB){
     encodeCanvas.toBlob(b=>b?res(b):rej(new Error('canvas.toBlob returned null')),'image/png')
   );
   
-  // Explicitly clear memory
   encodeCanvas.width=1; encodeCanvas.height=1;
   if(encodeCtx) encodeCtx.clearRect(0,0,1,1);
 
@@ -712,6 +717,9 @@ function updateUI(){
   const n=fileMap.size;
   queueSec.style.display=n?'block':'none';
   queueCount.textContent=n+' file'+(n!==1?'s':'');
+  
+  const done=[...fileMap.values()].filter(e=>e.status==='done').length;
+  document.getElementById('dlAllBtn').style.display = (done > 1) ? 'inline-block' : 'none';
 }
 
 function clearQueue(){
@@ -730,12 +738,11 @@ async function convertAll(){
 
   for(let i=0;i<todo.length;i++){
     const entry=todo[i];
-    if(!fileMap.has(entry.id)) continue; // abort if user cleared queue
+    if(!fileMap.has(entry.id)) continue;
 
     setBadge(entry.id,'processing','CONVERTING');
     progressLabel.textContent='['+(i+1)+'/'+total+'] '+entry.file.name;
     
-    // Give browser a tick to update UI before intensive ops
     await new Promise(r=>setTimeout(r,10));
 
     try{
@@ -782,6 +789,8 @@ async function convertAll(){
   const done=[...fileMap.values()].filter(e=>e.status==='done').length;
   const errs=[...fileMap.values()].filter(e=>e.status==='error').length;
   progressLabel.textContent='Done - '+done+'/'+total+' converted'+(errs?' · '+errs+' error(s), hover badge':'');
+  
+  document.getElementById('dlAllBtn').style.display = (done > 1) ? 'inline-block' : 'none';
   convertBtn.disabled=false;
 }
 
@@ -793,6 +802,38 @@ function dlFile(id){
   a.download=e.file.name.replace(/\.dds$/i,'.png');
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+async function downloadAll() {
+  const btn = document.getElementById('dlAllBtn');
+  const oldText = btn.textContent;
+  btn.textContent = 'ZIPPING...';
+  btn.disabled = true;
+  
+  try {
+    const zip = new JSZip();
+    let count = 0;
+    for (const [id, entry] of fileMap.entries()) {
+      if (entry.status === 'done' && entry.blob) {
+        zip.file(entry.file.name.replace(/\.dds$/i, '.png'), entry.blob);
+        count++;
+      }
+    }
+    if(count > 0) {
+      const content = await zip.generateAsync({type:"blob"});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      a.download = "Converted_Textures.zip";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+  } catch(e) {
+    console.error('[ZIP]', e);
+    alert('Failed to generate ZIP file.');
+  }
+  
+  btn.textContent = oldText;
+  btn.disabled = false;
 }
 </script>
 </body>
