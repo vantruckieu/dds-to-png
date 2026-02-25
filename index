@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDS → PNG Converter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --surface: #0f1318;
+    --border: #1e2530;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --text: #c8d8e8;
+    --dim: #4a5568;
+    --success: #00ff88;
+    --error: #ff4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .header .label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: 0.8;
+  }
+  .header h1 {
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header .sub {
+    margin-top: 14px;
+    font-size: 1rem;
+    color: var(--dim);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,229,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.04);
+  }
+  .drop-zone.drag-over { transform: scale(1.005); }
+
+  .drop-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    opacity: 0.6;
+  }
+  .drop-title {
+    font-size: 1.3rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .drop-sub {
+    font-size: 0.85rem;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .drop-zone input { display: none; }
+
+  .btn-browse {
+    margin-top: 24px;
+    display: inline-block;
+    padding: 10px 28px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .btn-browse:hover { background: var(--accent); color: var(--bg); }
+
+  /* Queue */
+  .queue {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .queue-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .queue-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .file-name {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-size { font-size: 0.78rem; color: var(--dim); white-space: nowrap; }
+
+  .badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .badge-pending { border: 1px solid var(--dim); color: var(--dim); }
+  .badge-processing { border: 1px solid var(--accent); color: var(--accent); animation: pulse 1s infinite; }
+  .badge-done { border: 1px solid var(--success); color: var(--success); }
+  .badge-error { border: 1px solid var(--error); color: var(--error); }
+
+  @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:0.4 } }
+
+  .dl-btn {
+    background: var(--success);
+    color: var(--bg);
+    border: none;
+    padding: 6px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .dl-btn:hover { opacity: 0.85; }
+
+  /* Actions bar */
+  .actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    flex: 1;
+    min-width: 180px;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    padding: 14px 24px;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--border);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--dim); }
+
+  /* Progress */
+  .progress-wrap {
+    margin-top: 20px;
+    display: none;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-bar-bg {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .progress-label {
+    margin-top: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+
+  /* Info */
+  .info-box {
+    margin-top: 48px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 20px 24px;
+    background: var(--surface);
+  }
+  .info-box h3 {
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 12px;
+  }
+  .info-box p {
+    font-size: 0.9rem;
+    color: var(--dim);
+    line-height: 1.7;
+  }
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent2);
+    border: 1px solid rgba(255,107,53,0.3);
+    padding: 3px 10px;
+    border-radius: 2px;
+  }
+
+  .footer {
+    margin-top: 48px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="label">// texture utility v1.0</div>
+    <h1>DDS → PNG</h1>
+    <p class="sub">Convert DirectDraw Surface textures to PNG — runs entirely in your browser</p>
+  </div>
+
+  <div class="drop-zone" id="dropZone">
+    <svg class="drop-icon" viewBox="0 0 56 56" fill="none">
+      <rect x="4" y="10" width="48" height="36" rx="3" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+      <path d="M28 38V22M28 22L21 30M28 22L35 30" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="14" y="14" width="12" height="9" rx="1" fill="var(--accent)" opacity="0.15" stroke="var(--accent)" stroke-width="1"/>
+    </svg>
+    <div class="drop-title">Drop .dds files here</div>
+    <div class="drop-sub">or click to browse — multiple files supported</div>
+    <button class="btn-browse" onclick="document.getElementById('fileInput').click()">SELECT FILES</button>
+    <input type="file" id="fileInput" accept=".dds" multiple>
+  </div>
+
+  <div id="queueSection" style="display:none">
+    <div class="queue-header">
+      <span class="queue-title">// file queue</span>
+      <span class="queue-count" id="queueCount">0 files</span>
+    </div>
+    <div class="queue" id="queue"></div>
+
+    <div class="actions">
+      <button class="btn-primary" id="convertBtn" onclick="convertAll()">CONVERT ALL</button>
+      <button class="btn-secondary" onclick="clearQueue()">CLEAR</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-label" id="progressLabel">Processing...</div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h3>Supported Formats</h3>
+    <p>This tool supports the most common DDS texture formats used in game engines and 3D applications. Processing is done locally — no files are uploaded to any server.</p>
+    <div class="tag-list">
+      <span class="tag">DXT1 / BC1</span>
+      <span class="tag">DXT3 / BC2</span>
+      <span class="tag">DXT5 / BC3</span>
+      <span class="tag">BC4 / BC5</span>
+      <span class="tag">BC6H / BC7</span>
+      <span class="tag">RGBA8 / BGRA8</span>
+      <span class="tag">RGB8</span>
+      <span class="tag">A8 / L8</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    100% client-side · no upload · no tracking ·
+    <a href="https://github.com" target="_blank">deploy to github pages</a>
+  </div>
+
+</div>
+
+<!-- squish (DDS parser) from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/squish/1.0.1/squish.min.js"></script>
+
+<script>
+// ── Minimal DDS decoder (no external dep needed) ────────────────────────────
+// Supports: DXT1/3/5, BC4/5, uncompressed RGBA/BGRA/RGB/A8/L8
+
+const DDSD_CAPS=0x1,DDSD_HEIGHT=0x2,DDSD_WIDTH=0x4,DDSD_PITCH=0x8,
+      DDSD_PIXELFORMAT=0x1000,DDSD_MIPMAPCOUNT=0x20000,DDSD_LINEARSIZE=0x80000;
+const DDPF_ALPHAPIXELS=0x1,DDPF_ALPHA=0x2,DDPF_FOURCC=0x4,
+      DDPF_RGB=0x40,DDPF_LUMINANCE=0x20000;
+const FOURCC_DXT1=0x31545844,FOURCC_DXT3=0x33545844,FOURCC_DXT5=0x35545844;
+const FOURCC_BC4U=0x55344342,FOURCC_BC4S=0x53344342;
+const FOURCC_BC5U=0x55354342,FOURCC_BC5S=0x53354342;
+const FOURCC_ATI1=0x31495441,FOURCC_ATI2=0x32495441;
+const FOURCC_DX10=0x30315844;
+
+function makeFourCC(s){ return s.charCodeAt(0)|(s.charCodeAt(1)<<8)|(s.charCodeAt(2)<<16)|(s.charCodeAt(3)<<24); }
+
+// DXT color block decode helpers
+function unpackRGB565(c){ return [(c>>11)*255/31|0, ((c>>5)&63)*255/63|0, (c&31)*255/31|0]; }
+
+function decodeDXT1Block(src, off, dst, bx, by, w){
+  const c0=src[off]|(src[off+1]<<8), c1=src[off+2]|(src[off+3]<<8);
+  let bits = src[off+4]|(src[off+5]<<8)|(src[off+6]<<16)|(src[off+7]*16777216);
+  const col=[[],[],[],[]];
+  col[0]=unpackRGB565(c0); col[1]=unpackRGB565(c1);
+  if(c0>c1){
+    col[2]=col[0].map((v,i)=>((2*v+col[1][i])/3|0));
+    col[3]=col[0].map((v,i)=>((v+2*col[1][i])/3|0));
+  } else {
+    col[2]=col[0].map((v,i)=>((v+col[1][i])>>1));
+    col[3]=[0,0,0];
+  }
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const idx=(bits>>((py*4+px)*2))&3;
+    const dx=bx+px, dy=by+py;
+    if(dx<w){
+      const p=(dy*w+dx)*4;
+      dst[p]=col[idx][0]; dst[p+1]=col[idx][1]; dst[p+2]=col[idx][2];
+      dst[p+3]=(c0<=c1&&idx===3)?0:255;
+    }
+  }
+}
+
+function decodeDXT3Block(src, off, dst, bx, by, w){
+  // 8 bytes alpha, 8 bytes color
+  const alphaBlock=src.slice(off, off+8);
+  decodeDXT1Block(src, off+8, dst, bx, by, w);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const ai = py*4+px;
+    const ab = alphaBlock[ai>>1];
+    const a = (ai&1)?(ab>>4):(ab&0xf);
+    const dx=bx+px, dy=by+py;
+    if(dx<w) dst[(dy*w+dx)*4+3] = (a*255/15)|0;
+  }
+}
+
+function decodeDXT5Alpha(src, off){
+  const a0=src[off], a1=src[off+1];
+  const table=[a0,a1];
+  if(a0>a1){ for(let i=2;i<8;i++) table[i]=((8-i)*a0+(i-1)*a1)/7|0; }
+  else { for(let i=2;i<6;i++) table[i]=((6-i)*a0+(i-1)*a1)/5|0; table[6]=0; table[7]=255; }
+  // 6 bytes of 3-bit indices
+  let bits=BigInt(0);
+  for(let i=0;i<6;i++) bits|=(BigInt(src[off+2+i])<<BigInt(i*8));
+  const alphas=[];
+  for(let i=0;i<16;i++) alphas.push(table[Number((bits>>BigInt(i*3))&BigInt(7))]);
+  return alphas;
+}
+
+function decodeDXT5Block(src, off, dst, bx, by, w){
+  const alphas=decodeDXT5Alpha(src, off);
+  decodeDXT1Block(src, off+8, dst, bx, by, w);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px, dy=by+py;
+    if(dx<w) dst[(dy*w+dx)*4+3]=alphas[py*4+px];
+  }
+}
+
+function decodeBC4Block(src, off, dst, bx, by, w, channel){
+  const alphas=decodeDXT5Alpha(src, off);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px, dy=by+py;
+    if(dx<w){ const p=(dy*w+dx)*4; const v=alphas[py*4+px]; dst[p]=v; dst[p+1]=v; dst[p+2]=v; dst[p+3]=255; }
+  }
+}
+
+function decodeBC5Block(src, off, dst, bx, by, w){
+  const r=decodeDXT5Alpha(src, off);
+  const g=decodeDXT5Alpha(src, off+8);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px, dy=by+py;
+    if(dx<w){ const p=(dy*w+dx)*4; dst[p]=r[py*4+px]; dst[p+1]=g[py*4+px]; dst[p+2]=0; dst[p+3]=255; }
+  }
+}
+
+function decodeDDS(buffer){
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+
+  if(view.getUint32(0,true)!==0x20534444) throw new Error('Not a valid DDS file');
+  const size=view.getUint32(4,true);
+  if(size!==124) throw new Error('Invalid DDS header size');
+
+  const flags=view.getUint32(8,true);
+  const height=view.getUint32(12,true);
+  const width=view.getUint32(16,true);
+
+  const pfOff=76;
+  const pfSize=view.getUint32(pfOff,true);
+  const pfFlags=view.getUint32(pfOff+4,true);
+  const fourCC=view.getUint32(pfOff+8,true);
+  const rgbBitCount=view.getUint32(pfOff+12,true);
+  const rMask=view.getUint32(pfOff+16,true);
+  const gMask=view.getUint32(pfOff+20,true);
+  const bMask=view.getUint32(pfOff+24,true);
+  const aMask=view.getUint32(pfOff+28,true);
+
+  const dataOffset = 128;
+  const src = bytes.subarray(dataOffset);
+  const dst = new Uint8ClampedArray(width*height*4);
+
+  if(pfFlags & DDPF_FOURCC){
+    if(fourCC===FOURCC_DXT1){
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
+        const off=((by/4*(Math.ceil(width/4))+(bx/4))*8)|0;
+        decodeDXT1Block(src,off,dst,bx,by,width);
+      }
+    } else if(fourCC===FOURCC_DXT3){
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
+        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
+        decodeDXT3Block(src,off,dst,bx,by,width);
+      }
+    } else if(fourCC===FOURCC_DXT5){
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
+        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
+        decodeDXT5Block(src,off,dst,bx,by,width);
+      }
+    } else if(fourCC===FOURCC_ATI1||fourCC===FOURCC_BC4U||fourCC===FOURCC_BC4S){
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
+        const off=((by/4*(Math.ceil(width/4))+(bx/4))*8)|0;
+        decodeBC4Block(src,off,dst,bx,by,width,0);
+      }
+    } else if(fourCC===FOURCC_ATI2||fourCC===FOURCC_BC5U||fourCC===FOURCC_BC5S){
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
+        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
+        decodeBC5Block(src,off,dst,bx,by,width);
+      }
+    } else if(fourCC===FOURCC_DX10){
+      // DX10 header
+      const dxgiFormat=view.getUint32(128,true);
+      const src2=bytes.subarray(148);
+      decodeDX10(dxgiFormat,src2,dst,width,height);
+    } else {
+      throw new Error('Unsupported FourCC: '+fourCC.toString(16));
+    }
+  } else if(pfFlags & DDPF_RGB){
+    // Uncompressed
+    const bytesPerPixel = rgbBitCount/8|0;
+    function maskToShift(m){ if(!m)return 0; let s=0; while(!(m&1)){m>>=1;s++;} return s; }
+    function maskToMax(m){ if(!m)return 1; let v=m; while(v&(v-1)) v=v&(v-1); return v>>maskToShift(m); }
+    const rs=maskToShift(rMask), gs=maskToShift(gMask), bs=maskToShift(bMask), as=maskToShift(aMask);
+    const rm=maskToMax(rMask)||255, gm=maskToMax(gMask)||255, bm=maskToMax(bMask)||255, am=maskToMax(aMask)||255;
+    for(let y=0;y<height;y++) for(let x=0;x<width;x++){
+      const si=(y*width+x)*bytesPerPixel;
+      let px=0;
+      for(let b=0;b<bytesPerPixel;b++) px|=(src[si+b]<<(b*8));
+      const di=(y*width+x)*4;
+      dst[di]=rMask?((px&rMask)>>rs)*255/rm|0:0;
+      dst[di+1]=gMask?((px&gMask)>>gs)*255/gm|0:0;
+      dst[di+2]=bMask?((px&bMask)>>bs)*255/bm|0:0;
+      dst[di+3]=aMask?((px&aMask)>>as)*255/am|0:255;
+    }
+  } else if(pfFlags & DDPF_LUMINANCE){
+    const bytesPerPixel = rgbBitCount/8|0;
+    for(let y=0;y<height;y++) for(let x=0;x<width;x++){
+      const si=(y*width+x)*bytesPerPixel;
+      const v=src[si];
+      const di=(y*width+x)*4;
+      dst[di]=dst[di+1]=dst[di+2]=v; dst[di+3]=255;
+    }
+  } else if(pfFlags & DDPF_ALPHA){
+    for(let i=0;i<width*height;i++){
+      dst[i*4]=dst[i*4+1]=dst[i*4+2]=0; dst[i*4+3]=src[i];
+    }
+  } else {
+    throw new Error('Unsupported pixel format');
+  }
+
+  return { data: dst, width, height };
+}
+
+function decodeDX10(fmt, src, dst, w, h){
+  // DXGI_FORMAT partial support
+  if(fmt===28||fmt===29){ // RGBA8_UNORM / RGBA8_UNORM_SRGB
+    for(let i=0;i<w*h*4;i++) dst[i]=src[i];
+  } else if(fmt===87||fmt===88){ // BGRA8
+    for(let i=0;i<w*h;i++){
+      dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1]; dst[i*4+2]=src[i*4]; dst[i*4+3]=src[i*4+3];
+    }
+  } else {
+    throw new Error('Unsupported DXGI format: '+fmt);
+  }
+}
+
+// ── App state ────────────────────────────────────────────────────────────────
+const files = new Map(); // name -> { file, status, blob }
+let idCounter = 0;
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const queueEl  = document.getElementById('queue');
+const queueSec = document.getElementById('queueSection');
+const queueCount = document.getElementById('queueCount');
+const convertBtn = document.getElementById('convertBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const progressLabel = document.getElementById('progressLabel');
+
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+dropZone.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', e=> addFiles(e.target.files));
+
+function addFiles(fileList){
+  for(const f of fileList){
+    if(!f.name.toLowerCase().endsWith('.dds')){ alert(`${f.name} is not a .dds file`); continue; }
+    const id = 'f'+(idCounter++);
+    files.set(id, { id, file: f, status:'pending', blob:null });
+    renderCard(id);
+  }
+  updateUI();
+}
+
+function formatSize(n){ return n>1e6?(n/1e6).toFixed(1)+'MB':n>1e3?(n/1e3).toFixed(0)+'KB':n+'B'; }
+
+function renderCard(id){
+  const entry = files.get(id);
+  const card = document.createElement('div');
+  card.className='file-card'; card.id='card-'+id;
+  card.innerHTML=`
+    <span class="file-name">${entry.file.name}</span>
+    <span class="file-size">${formatSize(entry.file.size)}</span>
+    <span class="badge badge-pending" id="badge-${id}">PENDING</span>
+    <button class="dl-btn" id="dl-${id}" style="display:none" onclick="downloadFile('${id}')">↓ PNG</button>
+  `;
+  queueEl.appendChild(card);
+}
+
+function setBadge(id, status, text){
+  const b=document.getElementById('badge-'+id);
+  b.className='badge badge-'+status; b.textContent=text;
+}
+
+function updateUI(){
+  const count = files.size;
+  queueSec.style.display = count>0?'block':'none';
+  queueCount.textContent = count+' file'+(count!==1?'s':'');
+}
+
+function clearQueue(){
+  files.clear(); queueEl.innerHTML='';
+  progressWrap.classList.remove('active');
+  fileInput.value='';
+  updateUI();
+}
+
+async function convertAll(){
+  convertBtn.disabled=true;
+  const entries=[...files.values()].filter(e=>e.status==='pending'||e.status==='error');
+  const total=entries.length;
+  if(!total){ convertBtn.disabled=false; return; }
+
+  progressWrap.classList.add('active');
+  progressBar.style.width='0%';
+
+  for(let i=0;i<entries.length;i++){
+    const entry=entries[i];
+    setBadge(entry.id,'processing','CONVERTING');
+    progressLabel.textContent=`[${i+1}/${total}] ${entry.file.name}`;
+    try {
+      const buf=await entry.file.arrayBuffer();
+      const {data,width,height}=decodeDDS(buf);
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      const ctx=canvas.getContext('2d');
+      ctx.putImageData(new ImageData(data,width,height),0,0);
+      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      entry.blob=blob; entry.status='done';
+      setBadge(entry.id,'done','DONE');
+      document.getElementById('dl-'+entry.id).style.display='inline-block';
+    } catch(err){
+      entry.status='error';
+      setBadge(entry.id,'error','ERROR');
+      console.error(entry.file.name, err);
+    }
+    progressBar.style.width=((i+1)/total*100)+'%';
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  progressLabel.textContent=`Done — ${entries.filter(e=>e.status==='done').length}/${total} converted`;
+  convertBtn.disabled=false;
+}
+
+function downloadFile(id){
+  const entry=files.get(id);
+  if(!entry||!entry.blob) return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(entry.blob);
+  a.download=entry.file.name.replace(/\.dds$/i,'.png');
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+</script>
+</body>
+</html>
