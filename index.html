@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DDS → PNG Converter</title>
+<title>DDS to PNG Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap');
-
   :root {
     --bg: #0a0c0f;
     --surface: #0f1318;
@@ -18,9 +19,7 @@
     --success: #00ff88;
     --error: #ff4444;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     background: var(--bg);
     color: var(--text);
@@ -28,310 +27,151 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
-
-  /* Grid background */
   body::before {
     content: '';
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background-image:
       linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
+    pointer-events: none; z-index: 0;
   }
-
   .container {
-    position: relative;
-    z-index: 1;
-    max-width: 860px;
-    margin: 0 auto;
+    position: relative; z-index: 1;
+    max-width: 860px; margin: 0 auto;
     padding: 48px 24px 80px;
   }
-
-  /* Header */
-  .header {
-    text-align: center;
-    margin-bottom: 56px;
-  }
+  .header { text-align: center; margin-bottom: 56px; }
   .header .label {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.3em;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    opacity: 0.8;
+    font-size: 11px; letter-spacing: 0.3em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 12px; opacity: 0.8;
   }
   .header h1 {
     font-size: clamp(2.4rem, 6vw, 4rem);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1;
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1;
     background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent2) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .header .sub {
-    margin-top: 14px;
-    font-size: 1rem;
-    color: var(--dim);
-    font-weight: 300;
-    letter-spacing: 0.05em;
+    margin-top: 14px; font-size: 1rem;
+    color: var(--dim); font-weight: 300; letter-spacing: 0.05em;
   }
-
-  /* Drop zone */
   .drop-zone {
-    border: 1.5px dashed var(--border);
-    border-radius: 4px;
-    padding: 56px 32px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    background: var(--surface);
-    position: relative;
-    overflow: hidden;
+    border: 1.5px dashed var(--border); border-radius: 4px;
+    padding: 56px 32px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: var(--surface);
+    position: relative; overflow: hidden;
   }
   .drop-zone::before {
-    content: '';
-    position: absolute;
-    inset: 0;
+    content: ''; position: absolute; inset: 0;
     background: radial-gradient(ellipse at center, rgba(0,229,255,0.04) 0%, transparent 70%);
     pointer-events: none;
   }
   .drop-zone:hover, .drop-zone.drag-over {
-    border-color: var(--accent);
-    background: rgba(0,229,255,0.04);
+    border-color: var(--accent); background: rgba(0,229,255,0.04);
   }
   .drop-zone.drag-over { transform: scale(1.005); }
-
-  .drop-icon {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 20px;
-    opacity: 0.6;
-  }
-  .drop-title {
-    font-size: 1.3rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-  }
-  .drop-sub {
-    font-size: 0.85rem;
-    color: var(--dim);
-    font-family: 'Share Tech Mono', monospace;
-  }
+  .drop-icon { width: 56px; height: 56px; margin: 0 auto 20px; opacity: 0.6; }
+  .drop-title { font-size: 1.3rem; font-weight: 500; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .drop-sub { font-size: 0.85rem; color: var(--dim); font-family: 'Share Tech Mono', monospace; }
   .drop-zone input { display: none; }
-
   .btn-browse {
-    margin-top: 24px;
-    display: inline-block;
-    padding: 10px 28px;
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.8rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
+    margin-top: 24px; display: inline-block;
+    padding: 10px 28px; background: transparent;
+    border: 1px solid var(--accent); color: var(--accent);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    cursor: pointer; border-radius: 2px; transition: all 0.15s;
   }
   .btn-browse:hover { background: var(--accent); color: var(--bg); }
-
-  /* Queue */
-  .queue {
-    margin-top: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
+  .queue { margin-top: 32px; display: flex; flex-direction: column; gap: 10px; }
   .queue-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 4px;
   }
   .queue-title {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--accent);
-    text-transform: uppercase;
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase;
   }
-  .queue-count {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--dim);
-  }
-
+  .queue-count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--dim); }
   .file-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    animation: slideIn 0.2s ease;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px; animation: slideIn 0.2s ease;
   }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
   .file-name {
-    flex: 1;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.82rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: 1; font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .file-size { font-size: 0.78rem; color: var(--dim); white-space: nowrap; }
-
   .badge {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 2px;
-    white-space: nowrap;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
+    padding: 2px 8px; border-radius: 2px; white-space: nowrap;
   }
-  .badge-pending { border: 1px solid var(--dim); color: var(--dim); }
-  .badge-processing { border: 1px solid var(--accent); color: var(--accent); animation: pulse 1s infinite; }
-  .badge-done { border: 1px solid var(--success); color: var(--success); }
-  .badge-error { border: 1px solid var(--error); color: var(--error); }
-
-  @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:0.4 } }
-
+  .badge-pending  { border: 1px solid var(--dim);     color: var(--dim); }
+  .badge-processing{ border: 1px solid var(--accent);  color: var(--accent); animation: pulse 1s infinite; }
+  .badge-done     { border: 1px solid var(--success);  color: var(--success); }
+  .badge-error    { border: 1px solid var(--error);    color: var(--error); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   .dl-btn {
-    background: var(--success);
-    color: var(--bg);
-    border: none;
-    padding: 6px 14px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: opacity 0.15s;
-    white-space: nowrap;
+    background: var(--success); color: var(--bg); border: none;
+    padding: 6px 14px; font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em; cursor: pointer;
+    border-radius: 2px; transition: opacity 0.15s; white-space: nowrap;
   }
   .dl-btn:hover { opacity: 0.85; }
-
-  /* Actions bar */
-  .actions {
-    margin-top: 24px;
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
+  .actions { margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap; }
   .btn-primary {
-    flex: 1;
-    min-width: 180px;
-    padding: 14px 28px;
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: all 0.15s;
+    flex: 1; min-width: 180px; padding: 14px 28px;
+    background: var(--accent); color: var(--bg); border: none;
+    font-family: 'Rajdhani', sans-serif; font-size: 1rem;
+    font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer; border-radius: 3px; transition: all 0.15s;
   }
   .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
   .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-
   .btn-secondary {
-    padding: 14px 24px;
-    background: transparent;
-    color: var(--dim);
-    border: 1px solid var(--border);
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: all 0.15s;
+    padding: 14px 24px; background: transparent; color: var(--dim);
+    border: 1px solid var(--border); font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem; font-weight: 500; letter-spacing: 0.08em;
+    cursor: pointer; border-radius: 3px; transition: all 0.15s;
   }
   .btn-secondary:hover { color: var(--text); border-color: var(--dim); }
-
-  /* Progress */
-  .progress-wrap {
-    margin-top: 20px;
-    display: none;
-  }
+  .progress-wrap { margin-top: 20px; display: none; }
   .progress-wrap.active { display: block; }
-  .progress-bar-bg {
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
+  .progress-bar-bg { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
   .progress-bar {
     height: 100%;
     background: linear-gradient(90deg, var(--accent), var(--accent2));
-    transition: width 0.3s;
-    width: 0%;
+    transition: width 0.3s; width: 0%;
   }
   .progress-label {
-    margin-top: 8px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    color: var(--dim);
+    margin-top: 8px; font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem; color: var(--dim);
   }
-
-  /* Info */
   .info-box {
-    margin-top: 48px;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 20px 24px;
-    background: var(--surface);
+    margin-top: 48px; border: 1px solid var(--border);
+    border-radius: 3px; padding: 20px 24px; background: var(--surface);
   }
   .info-box h3 {
-    font-size: 0.85rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    margin-bottom: 12px;
+    font-size: 0.85rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); font-family: 'Share Tech Mono', monospace; margin-bottom: 12px;
   }
-  .info-box p {
-    font-size: 0.9rem;
-    color: var(--dim);
-    line-height: 1.7;
-  }
-  .tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-  }
+  .info-box p { font-size: 0.9rem; color: var(--dim); line-height: 1.7; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .tag {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--accent2);
-    border: 1px solid rgba(255,107,53,0.3);
-    padding: 3px 10px;
-    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
+    color: var(--accent2); border: 1px solid rgba(255,107,53,0.3);
+    padding: 3px 10px; border-radius: 2px;
   }
-
   .footer {
-    margin-top: 48px;
-    text-align: center;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--dim);
-    letter-spacing: 0.1em;
+    margin-top: 48px; text-align: center;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
+    color: var(--dim); letter-spacing: 0.1em;
   }
   .footer a { color: var(--accent); text-decoration: none; }
 </style>
@@ -340,9 +180,9 @@
 <div class="container">
 
   <div class="header">
-    <div class="label">// texture utility v1.0</div>
-    <h1>DDS → PNG</h1>
-    <p class="sub">Convert DirectDraw Surface textures to PNG — runs entirely in your browser</p>
+    <div class="label">// texture utility v2.0</div>
+    <h1>DDS &rarr; PNG</h1>
+    <p class="sub">Convert DirectDraw Surface textures to PNG &mdash; runs entirely in your browser</p>
   </div>
 
   <div class="drop-zone" id="dropZone">
@@ -352,7 +192,7 @@
       <rect x="14" y="14" width="12" height="9" rx="1" fill="var(--accent)" opacity="0.15" stroke="var(--accent)" stroke-width="1"/>
     </svg>
     <div class="drop-title">Drop .dds files here</div>
-    <div class="drop-sub">or click to browse — multiple files supported</div>
+    <div class="drop-sub">or click to browse &mdash; multiple files supported</div>
     <button class="btn-browse" onclick="document.getElementById('fileInput').click()">SELECT FILES</button>
     <input type="file" id="fileInput" accept=".dds" multiple>
   </div>
@@ -363,12 +203,10 @@
       <span class="queue-count" id="queueCount">0 files</span>
     </div>
     <div class="queue" id="queue"></div>
-
     <div class="actions">
       <button class="btn-primary" id="convertBtn" onclick="convertAll()">CONVERT ALL</button>
       <button class="btn-secondary" onclick="clearQueue()">CLEAR</button>
     </div>
-
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
       <div class="progress-label" id="progressLabel">Processing...</div>
@@ -377,260 +215,258 @@
 
   <div class="info-box">
     <h3>Supported Formats</h3>
-    <p>This tool supports the most common DDS texture formats used in game engines and 3D applications. Processing is done locally — no files are uploaded to any server.</p>
+    <p>Supports the most common DDS texture formats used in game engines and 3D applications. Processing is done locally &mdash; no files are uploaded to any server.</p>
     <div class="tag-list">
       <span class="tag">DXT1 / BC1</span>
       <span class="tag">DXT3 / BC2</span>
       <span class="tag">DXT5 / BC3</span>
       <span class="tag">BC4 / BC5</span>
-      <span class="tag">BC6H / BC7</span>
       <span class="tag">RGBA8 / BGRA8</span>
       <span class="tag">RGB8</span>
       <span class="tag">A8 / L8</span>
+      <span class="tag">DX10 header</span>
     </div>
   </div>
 
   <div class="footer">
-    100% client-side · no upload · no tracking ·
+    100% client-side &middot; no upload &middot; no tracking &middot;
     <a href="https://github.com" target="_blank">deploy to github pages</a>
   </div>
 
 </div>
-
 <script>
-// ── DDS Decoder ──────────────────────────────────────────────────────────────
-// Supports: DXT1/3/5, BC4/5, uncompressed RGBA/BGRA/RGB/A8/L8, DX10 header
+// ============================================================
+// CRC32 (correct 256-entry standard table, verified against zlib)
+// ============================================================
+const CRC32T=new Uint32Array([
+  0,1996959894,3993919788,2567524794,124634137,1886057615,3915621685,2657392035,
+  249268274,2044508324,3772115230,2547177864,162941995,2125561021,3887607047,2428444049,
+  498536548,1789927666,4089016648,2227061214,450548861,1843258603,4107580753,2211677639,
+  325883990,1684777152,4251122042,2321926636,335633487,1661365465,4195302755,2366115317,
+  997073096,1281953886,3579855332,2724688242,1006888145,1258607687,3524101629,2768942443,
+  901097722,1119000684,3686517206,2898065728,853044451,1172266101,3705015759,2882616665,
+  651767980,1373503546,3369554304,3218104598,565507253,1454621731,3485111705,3099436303,
+  671266974,1594198024,3322730930,2970347812,795835527,1483230225,3244367275,3060149565,
+  1994146192,31158534,2563907772,4023717930,1907459465,112637215,2680153253,3904427059,
+  2013776290,251722036,2517215374,3775830040,2137656763,141376813,2439277719,3865271297,
+  1802195444,476864866,2238001368,4066508878,1812370925,453092731,2181625025,4111451223,
+  1706088902,314042704,2344532202,4240017532,1658658271,366619977,2362670323,4224994405,
+  1303535960,984961486,2747007092,3569037538,1256170817,1037604311,2765210733,3554079995,
+  1131014506,879679996,2909243462,3663771856,1141124467,855842277,2852801631,3708648649,
+  1342533948,654459306,3188396048,3373015174,1466479909,544179635,3110523913,3462522015,
+  1591671054,702138776,2966460450,3352799412,1504918807,783551873,3082640443,3233442989,
+  3988292384,2596254646,62317068,1957810842,3939845945,2647816111,81470997,1943803523,
+  3814918930,2489596804,225274430,2053790376,3826175755,2466906013,167816743,2097651377,
+  4027552580,2265490386,503444072,1762050814,4150417245,2154129355,426522225,1852507879,
+  4275313526,2312317920,282753626,1742555852,4189708143,2394877945,397917763,1622183637,
+  3604390888,2714866558,953729732,1340076626,3518719985,2797360999,1068828381,1219638859,
+  3624741850,2936675148,906185462,1090812512,3747672003,2825379669,829329135,1181335161,
+  3412177804,3160834842,628085408,1382605366,3423369109,3138078467,570562233,1426400815,
+  3317316542,2998733608,733239954,1555261956,3268935591,3050360625,752459403,1541320221,
+  2607071920,3965973030,1969922972,40735498,2617837225,3943577151,1913087877,83908371,
+  2512341634,3803740692,2075208622,213261112,2463272603,3855990285,2094854071,198958881,
+  2262029012,4057260610,1759359992,534414190,2176718541,4139329115,1873836001,414664567,
+  2282248934,4279200368,1711684554,285281116,2405801727,4167216745,1634467795,376229701,
+  2685067896,3608007406,1308918612,956543938,2808555105,3495958263,1231636301,1047427035,
+  2932959818,3654703836,1088359270,936918000,2847714899,3736837829,1202900863,817233897,
+  3183342108,3401237130,1404277552,615818150,3134207493,3453421203,1423857449,601450431,
+  3009837614,3294710456,1567103746,711928724,3020668471,3272380065,1510334235,755167117
+]);
 
-const DDPF_ALPHAPIXELS=0x1, DDPF_ALPHA=0x2, DDPF_FOURCC=0x4,
-      DDPF_RGB=0x40, DDPF_LUMINANCE=0x20000;
+function crc32(buf, off, len){
+  let c=0xFFFFFFFF;
+  for(let i=0;i<len;i++) c=(c>>>8)^CRC32T[(c^buf[off+i])&0xFF];
+  return (c^0xFFFFFFFF)>>>0;
+}
+function u32be(v){ return [(v>>>24)&0xff,(v>>>16)&0xff,(v>>>8)&0xff,v&0xff]; }
+
+// ============================================================
+// DDS constants
+// ============================================================
+const DDPF_ALPHA=0x2, DDPF_FOURCC=0x4, DDPF_RGB=0x40, DDPF_LUMINANCE=0x20000;
 const FOURCC_DXT1=0x31545844, FOURCC_DXT3=0x33545844, FOURCC_DXT5=0x35545844;
 const FOURCC_BC4U=0x55344342, FOURCC_BC4S=0x53344342;
 const FOURCC_BC5U=0x55354342, FOURCC_BC5S=0x53354342;
 const FOURCC_ATI1=0x31495441, FOURCC_ATI2=0x32495441;
 const FOURCC_DX10=0x30315844;
 
-// ── RGB565 unpack ─────────────────────────────────────────────────────────────
-function unpackRGB565(c){
-  return [(c>>11&0x1f)*255/31|0, (c>>5&0x3f)*255/63|0, (c&0x1f)*255/31|0];
+// ============================================================
+// sRGB LUT: linear uint8 -> sRGB uint8  (IEC 61966-2-1)
+// Built once at startup, ~0.3ms
+// ============================================================
+const L2S=new Uint8Array(256);
+(()=>{
+  for(let i=0;i<256;i++){
+    const l=i/255;
+    L2S[i]=Math.round(255*Math.min(1,l<=0.0031308?l*12.92:1.055*Math.pow(l,1/2.4)-0.055));
+  }
+})();
+
+function applyL2S(d){ // apply only to RGB, skip alpha
+  for(let i=0;i<d.length;i+=4){ d[i]=L2S[d[i]]; d[i+1]=L2S[d[i+1]]; d[i+2]=L2S[d[i+2]]; }
 }
 
-// ── DXT1 color block ──────────────────────────────────────────────────────────
-// FIX: use unsigned 32-bit read to avoid JS signed integer overflow on byte[7]
-function decodeDXT1Block(src, off, dst, bx, by, w, h){
-  const c0 = src[off]|(src[off+1]<<8);
-  const c1 = src[off+2]|(src[off+3]<<8);
-  // FIX: read 4 bytes as uint32 with >>> 0 to keep unsigned, avoid *16777216 overflow
-  const bits = (src[off+4]|(src[off+5]<<8)|(src[off+6]<<16)|(src[off+7]<<24))>>>0;
+// ============================================================
+// RGB565 unpack
+// ============================================================
+function unpack565(c){ return [(c>>11&31)*255/31|0,(c>>5&63)*255/63|0,(c&31)*255/31|0]; }
 
-  const col = [unpackRGB565(c0), unpackRGB565(c1), [], []];
-  if(c0 > c1){
-    col[2] = col[0].map((v,i)=> (2*v + col[1][i] + 1) /3 |0);
-    col[3] = col[0].map((v,i)=> (v  + 2*col[1][i] + 1)/3 |0);
+// ============================================================
+// Block decoders  (all include bounds check dx/dy)
+// ============================================================
+function dxt1Block(src,off,dst,bx,by,w,h){
+  const c0=src[off]|(src[off+1]<<8), c1=src[off+2]|(src[off+3]<<8);
+  const bits=(src[off+4]|(src[off+5]<<8)|(src[off+6]<<16)|(src[off+7]<<24))>>>0;
+  const col=[unpack565(c0),unpack565(c1),[],[]];
+  if(c0>c1){
+    col[2]=col[0].map((v,i)=>(2*v+col[1][i]+1)/3|0);
+    col[3]=col[0].map((v,i)=>(v+2*col[1][i]+1)/3|0);
   } else {
-    col[2] = col[0].map((v,i)=> (v + col[1][i]) >>1);
-    col[3] = [0,0,0]; // transparent black for DXT1 punch-through alpha
+    col[2]=col[0].map((v,i)=>(v+col[1][i])>>1);
+    col[3]=[0,0,0];
   }
-
-  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
-    const dx=bx+px, dy=by+py;
-    if(dx>=w || dy>=h) continue; // FIX: bounds check both x AND y
-    const idx = (bits >>> ((py*4+px)*2)) & 3;
-    const p   = (dy*w+dx)*4;
-    dst[p]   = col[idx][0];
-    dst[p+1] = col[idx][1];
-    dst[p+2] = col[idx][2];
-    dst[p+3] = (c0<=c1 && idx===3) ? 0 : 255;
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px,dy=by+py;
+    if(dx>=w||dy>=h) continue;
+    const idx=(bits>>>((py*4+px)*2))&3, p=(dy*w+dx)*4;
+    dst[p]=col[idx][0]; dst[p+1]=col[idx][1]; dst[p+2]=col[idx][2];
+    dst[p+3]=(c0<=c1&&idx===3)?0:255;
   }
 }
 
-// ── DXT3 explicit alpha block ─────────────────────────────────────────────────
-function decodeDXT3Block(src, off, dst, bx, by, w, h){
-  decodeDXT1Block(src, off+8, dst, bx, by, w, h);
-  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
-    const dx=bx+px, dy=by+py;
-    if(dx>=w || dy>=h) continue;
-    const ai = py*4+px;
-    const ab = src[off + (ai>>1)];
-    const a  = (ai&1) ? (ab>>4) : (ab&0xf);
-    dst[(dy*w+dx)*4+3] = (a*255/15)|0;
+function dxt3Block(src,off,dst,bx,by,w,h){
+  dxt1Block(src,off+8,dst,bx,by,w,h);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px,dy=by+py;
+    if(dx>=w||dy>=h) continue;
+    const ai=py*4+px, ab=src[off+(ai>>1)], a=(ai&1)?(ab>>4):(ab&0xf);
+    dst[(dy*w+dx)*4+3]=(a*255/15)|0;
   }
 }
 
-// ── DXT5 / BC4 / BC5 alpha block ─────────────────────────────────────────────
-// FIX: replaced BigInt with two 32-bit integer reads — much faster, no BigInt overhead
-function decodeDXT5Alpha(src, off){
-  const a0=src[off], a1=src[off+1];
-  const table=[a0,a1];
-  if(a0>a1){ for(let i=2;i<8;i++) table[i]= ((8-i)*a0 + (i-1)*a1) /7 |0; }
-  else      { for(let i=2;i<6;i++) table[i]= ((6-i)*a0 + (i-1)*a1) /5 |0; table[6]=0; table[7]=255; }
-
-  // Read 6 bytes as two 32-bit halves to avoid BigInt
-  const lo = (src[off+2]|(src[off+3]<<8)|(src[off+4]<<16)|(src[off+5]<<24))>>>0; // bits 0..31
-  const hi = (src[off+6]|(src[off+7]<<8))>>>0;                                     // bits 32..47
-
-  const alphas = new Uint8Array(16);
-  for(let i=0; i<16; i++){
-    const bitPos = i*3;
+function dxt5Alpha(src,off){
+  const a0=src[off],a1=src[off+1],tbl=[a0,a1];
+  if(a0>a1){ for(let i=2;i<8;i++) tbl[i]=((8-i)*a0+(i-1)*a1)/7|0; }
+  else      { for(let i=2;i<6;i++) tbl[i]=((6-i)*a0+(i-1)*a1)/5|0; tbl[6]=0; tbl[7]=255; }
+  const lo=(src[off+2]|(src[off+3]<<8)|(src[off+4]<<16)|(src[off+5]<<24))>>>0;
+  const hi=(src[off+6]|(src[off+7]<<8))>>>0;
+  const out=new Uint8Array(16);
+  for(let i=0;i<16;i++){
+    const b=i*3;
     let idx;
-    if(bitPos < 30){
-      idx = (lo >>> bitPos) & 7;
-    } else if(bitPos === 30){
-      // straddles the 32-bit boundary: 2 bits from lo, 1 from hi
-      idx = ((lo>>>30) | ((hi&1)<<2)) & 7;
-    } else {
-      idx = (hi >>> (bitPos-32)) & 7;
-    }
-    alphas[i] = table[idx];
+    if(b<30)       idx=(lo>>>b)&7;
+    else if(b===30) idx=((lo>>>30)|((hi&1)<<2))&7;
+    else            idx=(hi>>>(b-32))&7;
+    out[i]=tbl[idx];
   }
-  return alphas;
+  return out;
 }
 
-function decodeDXT5Block(src, off, dst, bx, by, w, h){
-  const alphas = decodeDXT5Alpha(src, off);
-  decodeDXT1Block(src, off+8, dst, bx, by, w, h);
-  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
-    const dx=bx+px, dy=by+py;
-    if(dx>=w || dy>=h) continue; // FIX: bounds check y too
-    dst[(dy*w+dx)*4+3] = alphas[py*4+px];
+function dxt5Block(src,off,dst,bx,by,w,h){
+  const a=dxt5Alpha(src,off);
+  dxt1Block(src,off+8,dst,bx,by,w,h);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px,dy=by+py;
+    if(dx>=w||dy>=h) continue;
+    dst[(dy*w+dx)*4+3]=a[py*4+px];
   }
 }
 
-function decodeBC4Block(src, off, dst, bx, by, w, h){
-  const alphas = decodeDXT5Alpha(src, off);
-  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
-    const dx=bx+px, dy=by+py;
-    if(dx>=w || dy>=h) continue;
-    const p=(dy*w+dx)*4, v=alphas[py*4+px];
+function bc4Block(src,off,dst,bx,by,w,h){
+  const a=dxt5Alpha(src,off);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px,dy=by+py;
+    if(dx>=w||dy>=h) continue;
+    const p=(dy*w+dx)*4,v=a[py*4+px];
     dst[p]=v; dst[p+1]=v; dst[p+2]=v; dst[p+3]=255;
   }
 }
 
-function decodeBC5Block(src, off, dst, bx, by, w, h){
-  const r = decodeDXT5Alpha(src, off);
-  const g = decodeDXT5Alpha(src, off+8);
-  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
-    const dx=bx+px, dy=by+py;
-    if(dx>=w || dy>=h) continue;
+function bc5Block(src,off,dst,bx,by,w,h){
+  const r=dxt5Alpha(src,off), g=dxt5Alpha(src,off+8);
+  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+    const dx=bx+px,dy=by+py;
+    if(dx>=w||dy>=h) continue;
     const p=(dy*w+dx)*4;
-    dst[p]=r[py*4+px]; dst[p+1]=g[py*4+px]; dst[p+2]=0; dst[p+3]=255;
+    dst[p]=r[py*4+px]; dst[p+1]=g[py*4+px]; dst[p+2]=128; dst[p+3]=255;
+    // B=128 reconstructs correct Z for normal maps: Z = sqrt(1 - R^2 - G^2)
   }
 }
 
-// ── Mask helpers for uncompressed ────────────────────────────────────────────
-// FIX: correct popcount-based bit-depth from mask, old logic was wrong
-function maskShift(m){ if(!m) return 0; let s=0; let v=m; while(!(v&1)){v>>>=1;s++;} return s; }
+// ============================================================
+// Mask helpers (uncompressed formats)
+// ============================================================
+function maskShift(m){ if(!m) return 0; let s=0,v=m; while(!(v&1)){v>>>=1;s++;} return s; }
 function maskMax(m){
   if(!m) return 255;
-  // count set bits to get bit depth, then max = 2^depth - 1
-  let v=m>>>maskShift(m), bits=0;
-  while(v){bits+=v&1;v>>>=1;}
-  return (1<<bits)-1;
+  let v=m>>>maskShift(m),b=0; while(v){b+=v&1;v>>>=1;} return (1<<b)-1;
 }
 
-// ── sRGB ↔ Linear conversion tables (build once at startup) ──────────────────
-// DDS _SRGB formats store gamma-encoded data. PNG + sRGB color space = same.
-// DDS _UNORM / legacy DXT = linear data. We need to convert to sRGB before
-// writing to PNG so viewers/engines interpret colors correctly.
-//
-// RULE:
-//   _SRGB format  → data is already sRGB-encoded → copy bytes straight to PNG
-//   _UNORM / legacy DXT → data is linear → apply linear→sRGB before PNG export
-//
-// We pre-build a 256-entry LUT for linear uint8 → sRGB uint8 conversion.
-const LINEAR_TO_SRGB = new Uint8Array(256);
-(function buildLUT(){
-  for(let i=0;i<256;i++){
-    let l=i/255;
-    // IEC 61966-2-1 linearisation formula
-    let s = l<=0.0031308 ? l*12.92 : 1.055*Math.pow(l,1/2.4)-0.055;
-    LINEAR_TO_SRGB[i] = Math.round(Math.min(1,Math.max(0,s))*255);
-  }
-})();
-
-// Apply linear→sRGB to RGB channels only (skip alpha at index+3)
-function applyLinearToSRGB(data){
-  for(let i=0;i<data.length;i+=4){
-    data[i]  = LINEAR_TO_SRGB[data[i]];
-    data[i+1]= LINEAR_TO_SRGB[data[i+1]];
-    data[i+2]= LINEAR_TO_SRGB[data[i+2]];
-    // alpha is always linear — do not convert
-  }
-}
-
-// ── Main DDS decoder ─────────────────────────────────────────────────────────
-// Returns { data, width, height, isSRGB }
-// isSRGB=true  → pixel data is already sRGB-encoded (from _SRGB format)
-// isSRGB=false → pixel data is linear (classic DXT / _UNORM)
+// ============================================================
+// Main DDS decoder
+// Returns { data:Uint8ClampedArray, width, height, isSRGB, isDataMap }
+// isDataMap = true for BC4/BC5/normal/roughness (skip gamma)
+// ============================================================
 function decodeDDS(buffer){
-  const view  = new DataView(buffer);
-  const bytes = new Uint8Array(buffer);
+  const view=new DataView(buffer), bytes=new Uint8Array(buffer);
 
-  if(view.getUint32(0,true) !== 0x20534444) throw new Error('Not a valid DDS file (bad magic)');
-  if(view.getUint32(4,true) !== 124)        throw new Error('Invalid DDS header size');
+  if(view.getUint32(0,true)!==0x20534444) throw new Error('Not a valid DDS file');
+  // Relaxed header check: some old tools write size != 124
+  const hdrSize=view.getUint32(4,true);
+  if(hdrSize!==124&&hdrSize!==128) throw new Error('Unexpected DDS header size: '+hdrSize);
 
-  const height = view.getUint32(12,true);
-  const width  = view.getUint32(16,true);
-  if(!width || !height) throw new Error('Invalid dimensions');
+  const height=view.getUint32(12,true), width=view.getUint32(16,true);
+  if(!width||!height||width>16384||height>16384) throw new Error('Invalid dimensions: '+width+'x'+height);
 
-  const pfOff      = 76;
-  const pfFlags    = view.getUint32(pfOff+4, true);
-  const fourCC     = view.getUint32(pfOff+8, true);
-  const rgbBitCount= view.getUint32(pfOff+12,true);
-  const rMask      = view.getUint32(pfOff+16,true)>>>0;
-  const gMask      = view.getUint32(pfOff+20,true)>>>0;
-  const bMask      = view.getUint32(pfOff+24,true)>>>0;
-  const aMask      = view.getUint32(pfOff+28,true)>>>0;
+  const pfOff=76;
+  const pfFlags=view.getUint32(pfOff+4,true);
+  const fourCC =view.getUint32(pfOff+8,true);
+  const rgbBC  =view.getUint32(pfOff+12,true);
+  const rMask  =view.getUint32(pfOff+16,true)>>>0;
+  const gMask  =view.getUint32(pfOff+20,true)>>>0;
+  const bMask  =view.getUint32(pfOff+24,true)>>>0;
+  const aMask  =view.getUint32(pfOff+28,true)>>>0;
 
-  const isDX10 = (pfFlags & DDPF_FOURCC) && fourCC === FOURCC_DX10;
-  const dataOffset = isDX10 ? 148 : 128;
-  const src = bytes.subarray(dataOffset);
-  const dst = new Uint8ClampedArray(width*height*4);
-  const blocksWide = Math.ceil(width/4)|0;
+  const isDX10=(pfFlags&DDPF_FOURCC)&&fourCC===FOURCC_DX10;
+  const dataOff=isDX10?148:128;
+  const src=bytes.subarray(dataOff);
+  const dst=new Uint8ClampedArray(width*height*4);
+  const bw=Math.ceil(width/4)|0; // block columns
 
-  // Track whether the format declares sRGB encoding
-  let isSRGB = false;
+  let isSRGB=false, isDataMap=false;
 
-  if(pfFlags & DDPF_FOURCC){
+  if(pfFlags&DDPF_FOURCC){
     if(fourCC===FOURCC_DXT1){
-      // Legacy DXT1 has no sRGB flag → linear data
-      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=(((by>>2)*blocksWide+(bx>>2))*8)|0;
-        decodeDXT1Block(src,off,dst,bx,by,width,height);
-      }
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4)
+        dxt1Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,width,height);
     } else if(fourCC===FOURCC_DXT3){
-      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
-        decodeDXT3Block(src,off,dst,bx,by,width,height);
-      }
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4)
+        dxt3Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,width,height);
     } else if(fourCC===FOURCC_DXT5){
-      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
-        decodeDXT5Block(src,off,dst,bx,by,width,height);
-      }
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4)
+        dxt5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,width,height);
     } else if(fourCC===FOURCC_ATI1||fourCC===FOURCC_BC4U||fourCC===FOURCC_BC4S){
-      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=(((by>>2)*blocksWide+(bx>>2))*8)|0;
-        decodeBC4Block(src,off,dst,bx,by,width,height);
-      }
+      isDataMap=true; // grayscale data map
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4)
+        bc4Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,width,height);
     } else if(fourCC===FOURCC_ATI2||fourCC===FOURCC_BC5U||fourCC===FOURCC_BC5S){
-      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
-        decodeBC5Block(src,off,dst,bx,by,width,height);
-      }
+      isDataMap=true; // normal map / 2-channel data
+      for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4)
+        bc5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,width,height);
     } else if(isDX10){
-      const dxgiFormat=view.getUint32(128,true);
-      isSRGB=decodeDX10(dxgiFormat,src,dst,width,height);
+      const fmt=view.getUint32(128,true);
+      const r=decodeDX10(fmt,src,dst,width,height);
+      isSRGB=r.isSRGB; isDataMap=r.isDataMap;
     } else {
       throw new Error('Unsupported FourCC: 0x'+fourCC.toString(16).toUpperCase());
     }
-  } else if(pfFlags & DDPF_RGB){
-    const bpp=(rgbBitCount/8)|0;
-    if(bpp<1||bpp>4) throw new Error('Invalid RGB bit count: '+rgbBitCount);
+  } else if(pfFlags&DDPF_RGB){
+    const bpp=(rgbBC/8)|0;
+    if(bpp<1||bpp>4) throw new Error('Invalid bpp: '+bpp);
     const rs=maskShift(rMask),gs=maskShift(gMask),bs=maskShift(bMask),as=maskShift(aMask);
-    const rm=maskMax(rMask),  gm=maskMax(gMask),  bm=maskMax(bMask),  am=maskMax(aMask);
+    const rm=maskMax(rMask),gm=maskMax(gMask),bm=maskMax(bMask),am=maskMax(aMask);
     for(let y=0;y<height;y++) for(let x=0;x<width;x++){
-      const si=(y*width+x)*bpp;
-      let val=0;
+      const si=(y*width+x)*bpp; let val=0;
       for(let b=0;b<bpp;b++) val=(val|(src[si+b]<<(b*8)))>>>0;
       const di=(y*width+x)*4;
       dst[di]  =rMask?((val&rMask)>>>rs)*255/rm|0:0;
@@ -638,301 +474,272 @@ function decodeDDS(buffer){
       dst[di+2]=bMask?((val&bMask)>>>bs)*255/bm|0:0;
       dst[di+3]=aMask?((val&aMask)>>>as)*255/am|0:255;
     }
-    // Uncompressed DDS with no explicit sRGB flag = treat as linear
-  } else if(pfFlags & DDPF_LUMINANCE){
-    const bpp=(rgbBitCount/8)|0||1;
+  } else if(pfFlags&DDPF_LUMINANCE){
+    const bpp=(rgbBC/8)|0||1;
+    isDataMap=true;
     for(let y=0;y<height;y++) for(let x=0;x<width;x++){
-      const si=(y*width+x)*bpp,v=src[si],di=(y*width+x)*4;
+      const v=src[(y*width+x)*bpp],di=(y*width+x)*4;
       dst[di]=dst[di+1]=dst[di+2]=v; dst[di+3]=255;
     }
-  } else if(pfFlags & DDPF_ALPHA){
+  } else if(pfFlags&DDPF_ALPHA){
+    isDataMap=true;
     for(let i=0;i<width*height;i++){
       dst[i*4]=dst[i*4+1]=dst[i*4+2]=0; dst[i*4+3]=src[i];
     }
   } else {
-    throw new Error('Unsupported pixel format flags: 0x'+pfFlags.toString(16));
+    throw new Error('Unsupported pixel format: 0x'+pfFlags.toString(16));
   }
 
-  return { data:dst, width, height, isSRGB };
+  return {data:dst,width,height,isSRGB,isDataMap};
 }
 
-// ── DX10 extended format decoder ─────────────────────────────────────────────
-// Returns true if the format is tagged as sRGB (data is already gamma-encoded)
-function decodeDX10(fmt, src, dst, w, h){
+// ============================================================
+// DX10 extended format decoder
+// Returns { isSRGB, isDataMap }
+// ============================================================
+function decodeDX10(fmt,src,dst,w,h){
   const n=w*h;
-  // DXGI sRGB variants: 29=R8G8B8A8_UNORM_SRGB, 71=BC1_UNORM_SRGB,
-  // 74=BC2_UNORM_SRGB, 77=BC3_UNORM_SRGB, 91=B8G8R8A8_UNORM_SRGB, 93=B8G8R8X8_UNORM_SRGB
-  const srgbFormats=new Set([29,71,74,77,91,93]);
-  const isSRGB=srgbFormats.has(fmt);
+  const srgbSet=new Set([29,71,74,77,91,93]);
+  const dataSet=new Set([49,61,79,80,82,83]); // RG8, R8, BC4, BC5
+  const bw=Math.ceil(w/4)|0;
 
   switch(fmt){
-    // ── RGBA8 UNORM / SRGB ──
-    case 28: case 29:
+    case 28: case 29: // R8G8B8A8_UNORM/_SRGB
       for(let i=0;i<n*4;i++) dst[i]=src[i];
       break;
-    // ── BGRA8 UNORM / SRGB ──
-    case 87: case 91:
+    case 87: case 91: // B8G8R8A8_UNORM/_SRGB
       for(let i=0;i<n;i++){
         dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1];
         dst[i*4+2]=src[i*4]; dst[i*4+3]=src[i*4+3];
       }
       break;
-    // ── BGRX8 UNORM / SRGB (no alpha) ──
-    case 88: case 93:
+    case 88: case 93: // B8G8R8X8_UNORM/_SRGB
       for(let i=0;i<n;i++){
         dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1];
         dst[i*4+2]=src[i*4]; dst[i*4+3]=255;
       }
       break;
-    // ── BC1 UNORM / SRGB ──
-    case 70: case 71: {
-      const bw=Math.ceil(w/4)|0;
+    case 70: case 71: // BC1
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
-        decodeDXT1Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
+        dxt1Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
       break;
-    }
-    // ── BC2 UNORM / SRGB ──
-    case 73: case 74: {
-      const bw=Math.ceil(w/4)|0;
+    case 73: case 74: // BC2
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
-        decodeDXT3Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+        dxt3Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
       break;
-    }
-    // ── BC3 UNORM / SRGB ──
-    case 76: case 77: {
-      const bw=Math.ceil(w/4)|0;
+    case 76: case 77: // BC3
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
-        decodeDXT5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+        dxt5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
       break;
-    }
-    // ── BC4 UNORM / SNORM ──
-    case 79: case 80: {
-      const bw=Math.ceil(w/4)|0;
+    case 79: case 80: // BC4 UNORM/SNORM
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
-        decodeBC4Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
+        bc4Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
       break;
-    }
-    // ── BC5 UNORM / SNORM ──
-    case 82: case 83: {
-      const bw=Math.ceil(w/4)|0;
+    case 82: case 83: // BC5 UNORM/SNORM
       for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
-        decodeBC5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+        bc5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
       break;
-    }
-    // ── R8 greyscale ──
-    case 61:
+    case 61: // R8_UNORM greyscale
       for(let i=0;i<n;i++){const v=src[i];dst[i*4]=v;dst[i*4+1]=v;dst[i*4+2]=v;dst[i*4+3]=255;}
       break;
-    // ── RG8 ──
-    case 49:
+    case 49: // R8G8_UNORM
       for(let i=0;i<n;i++){dst[i*4]=src[i*2];dst[i*4+1]=src[i*2+1];dst[i*4+2]=0;dst[i*4+3]=255;}
       break;
     default:
-      throw new Error('Unsupported DXGI_FORMAT: '+fmt+' — please report this');
+      throw new Error('Unsupported DXGI_FORMAT: '+fmt);
   }
-  return isSRGB;
+  return {isSRGB:srgbSet.has(fmt), isDataMap:dataSet.has(fmt)};
 }
 
-// ── PNG encoder with embedded sRGB chunk ─────────────────────────────────────
-// Standard canvas.toBlob does NOT embed sRGB chunk by spec.
-// We manually inject the PNG sRGB chunk (1 byte rendering intent = 0 = Perceptual)
-// and gAMA chunk (gamma = 45455 ≈ 1/2.2 which is the sRGB approximation)
-// so ICC-aware tools (Photoshop, Unity, Unreal) read the file correctly.
-async function encodeAsPNG(data, width, height, isSRGB){
-  const canvas = document.createElement('canvas');
+// ============================================================
+// PNG encoder with correct sRGB metadata injection
+// - Scans the raw PNG to find real end-of-IHDR position
+//   (don't hardcode offset=33; Chrome may already inject chunks)
+// - Injects sRGB + gAMA only for declared-sRGB sources
+// - Does NOT touch data-map textures (BC4/BC5/luminance)
+// ============================================================
+async function encodeAsPNG(data,width,height,isSRGB){
+  const canvas=document.createElement('canvas');
   canvas.width=width; canvas.height=height;
-  const ctx = canvas.getContext('2d', {colorSpace:'srgb'});
-
-  // ImageData colorSpace hint (supported in Chrome 92+, Firefox 99+)
+  const ctx=canvas.getContext('2d',{colorSpace:'srgb'});
   let imgData;
-  try {
-    imgData = new ImageData(data, width, height, {colorSpace:'srgb'});
-  } catch(_){
-    imgData = new ImageData(data, width, height);
-  }
-  ctx.putImageData(imgData, 0, 0);
+  try { imgData=new ImageData(data,width,height,{colorSpace:'srgb'}); }
+  catch(_){ imgData=new ImageData(data,width,height); }
+  ctx.putImageData(imgData,0,0);
 
-  // Get raw PNG bytes from canvas
-  const rawBlob = await new Promise((res,rej)=>
-    canvas.toBlob(b=>b?res(b):rej(new Error('toBlob returned null')), 'image/png')
+  const rawBlob=await new Promise((res,rej)=>
+    canvas.toBlob(b=>b?res(b):rej(new Error('canvas.toBlob returned null')),'image/png')
   );
-  const rawBuf = await rawBlob.arrayBuffer();
-  const raw = new Uint8Array(rawBuf);
+  if(!isSRGB) return rawBlob; // linear / data maps: no extra metadata needed
 
-  if(!isSRGB){
-    // Linear data: do NOT add sRGB/gAMA chunks — emit as-is
-    return rawBlob;
-  }
+  const raw=new Uint8Array(await rawBlob.arrayBuffer());
 
-  // Inject sRGB + gAMA chunks right after the PNG signature+IHDR
-  // PNG structure: 8-byte sig | IHDR(4+4+13+4=25 bytes) | ... | IEND
-  // We insert our chunks right after IHDR (offset 33)
-  const INSERT_OFFSET = 33;
-
-  // Build sRGB chunk: length(4) + type(4) + data(1) + crc(4) = 13 bytes
-  function crc32(buf, off, len){
-    let c=0xFFFFFFFF;
-    const t=[0,1996959894,3993919788,2567524794,124634137,1886057615,3915621685,
-             2657392035,249268274,2044508324,3772115230,2547177864,162941995,
-             2125561021,3887607047,2428444049];
-    for(let i=0;i<len;i++){
-      const b=buf[off+i];
-      c=(c>>>4)^t[(c^(b))&0xf];
-      c=(c>>>4)^t[(c^(b>>4))&0xf];
+  // ── Find injection point: right after IHDR chunk ──
+  // Scan from byte 8 (after PNG sig) looking for chunk type bytes
+  // IHDR = 0x49484452
+  let insertAt=33; // default fallback
+  if(raw[0]===0x89&&raw[1]===0x50){ // valid PNG sig
+    // Byte 8: IHDR length (4 bytes big-endian)
+    const ihdrLen=(raw[8]<<24|raw[9]<<16|raw[10]<<8|raw[11])>>>0;
+    insertAt=8+4+4+ihdrLen+4; // skip: len(4)+type(4)+data(ihdrLen)+crc(4)
+    // Verify we land on a chunk boundary (not another sRGB/cHRM already)
+    const nextType=String.fromCharCode(raw[insertAt+4],raw[insertAt+5],raw[insertAt+6],raw[insertAt+7]);
+    if(nextType==='sRGB'||nextType==='gAMA'||nextType==='cHRM'){
+      // Browser already injected color metadata - return as-is, it's correct
+      return rawBlob;
     }
-    return (c^0xFFFFFFFF)>>>0;
   }
-  function u32be(v){ return [(v>>>24)&0xff,(v>>>16)&0xff,(v>>>8)&0xff,v&0xff]; }
 
-  // sRGB chunk (rendering intent = 0 = Perceptual)
-  const srgbData=[0x73,0x52,0x47,0x42,0]; // type "sRGB" + 1 byte intent
-  const srgbCRC=crc32(new Uint8Array(srgbData),0,5);
-  const srgbChunk=[...u32be(1),...srgbData,...u32be(srgbCRC)]; // 13 bytes
+  // ── Build sRGB chunk ──
+  const srgbPayload=new Uint8Array([0x73,0x52,0x47,0x42,0]); // "sRGB"+intent=0
+  const srgbCRC=crc32(srgbPayload,0,5);
+  const srgbChunk=[...u32be(1),...srgbPayload,...u32be(srgbCRC)]; // 13 bytes
 
-  // gAMA chunk: gamma = 45455 (represents ~1/2.2, sRGB standard)
-  const gamaData=[0x67,0x41,0x4D,0x41,...u32be(45455)]; // type "gAMA" + uint32
-  const gamaCRC=crc32(new Uint8Array(gamaData),0,8);
-  const gamaChunk=[...u32be(4),...gamaData,...u32be(gamaCRC)]; // 16 bytes
+  // ── Build gAMA chunk (45455 = sRGB gamma ~1/2.2) ──
+  const gamaPayload=new Uint8Array([0x67,0x41,0x4D,0x41,...u32be(45455)]); // "gAMA"+value
+  const gamaCRC=crc32(gamaPayload,0,8);
+  const gamaChunk=[...u32be(4),...gamaPayload,...u32be(gamaCRC)]; // 16 bytes
 
   const extra=new Uint8Array([...srgbChunk,...gamaChunk]);
   const out=new Uint8Array(raw.length+extra.length);
-  out.set(raw.subarray(0,INSERT_OFFSET),0);
-  out.set(extra,INSERT_OFFSET);
-  out.set(raw.subarray(INSERT_OFFSET),INSERT_OFFSET+extra.length);
-
+  out.set(raw.subarray(0,insertAt));
+  out.set(extra,insertAt);
+  out.set(raw.subarray(insertAt),insertAt+extra.length);
   return new Blob([out],{type:'image/png'});
 }
 
-// ── App state ────────────────────────────────────────────────────────────────
-const files = new Map(); // name -> { file, status, blob }
-let idCounter = 0;
+// ============================================================
+// App state
+// ============================================================
+const fileMap=new Map();
+let idN=0;
 
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const queueEl  = document.getElementById('queue');
-const queueSec = document.getElementById('queueSection');
-const queueCount = document.getElementById('queueCount');
-const convertBtn = document.getElementById('convertBtn');
-const progressWrap = document.getElementById('progressWrap');
-const progressBar = document.getElementById('progressBar');
-const progressLabel = document.getElementById('progressLabel');
+const dropZone=document.getElementById('dropZone');
+const fileInput=document.getElementById('fileInput');
+const queueEl=document.getElementById('queue');
+const queueSec=document.getElementById('queueSection');
+const queueCount=document.getElementById('queueCount');
+const convertBtn=document.getElementById('convertBtn');
+const progressWrap=document.getElementById('progressWrap');
+const progressBar=document.getElementById('progressBar');
+const progressLabel=document.getElementById('progressLabel');
 
-dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
-dropZone.addEventListener('click', ()=> fileInput.click());
-fileInput.addEventListener('change', e=> addFiles(e.target.files));
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');addFiles(e.dataTransfer.files);});
+dropZone.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',e=>addFiles(e.target.files));
 
-function addFiles(fileList){
-  for(const f of fileList){
-    if(!f.name.toLowerCase().endsWith('.dds')){ alert(`${f.name} is not a .dds file`); continue; }
-    const id = 'f'+(idCounter++);
-    files.set(id, { id, file: f, status:'pending', blob:null });
+function addFiles(list){
+  for(const f of list){
+    if(!f.name.toLowerCase().endsWith('.dds')){alert(f.name+' is not a .dds file');continue;}
+    const id='f'+(idN++);
+    fileMap.set(id,{id,file:f,status:'pending',blob:null});
     renderCard(id);
   }
   updateUI();
 }
 
-function formatSize(n){ return n>1e6?(n/1e6).toFixed(1)+'MB':n>1e3?(n/1e3).toFixed(0)+'KB':n+'B'; }
+function fmtSize(n){return n>1e6?(n/1e6).toFixed(1)+'MB':n>1e3?(n/1e3).toFixed(0)+'KB':n+'B';}
 
 function renderCard(id){
-  const entry = files.get(id);
-  const card = document.createElement('div');
+  const e=fileMap.get(id);
+  const card=document.createElement('div');
   card.className='file-card'; card.id='card-'+id;
   card.innerHTML=`
-    <span class="file-name">${entry.file.name}</span>
-    <span class="file-size">${formatSize(entry.file.size)}</span>
+    <span class="file-name">${e.file.name}</span>
+    <span class="file-size">${fmtSize(e.file.size)}</span>
     <span class="badge badge-pending" id="badge-${id}">PENDING</span>
-    <button class="dl-btn" id="dl-${id}" style="display:none" onclick="downloadFile('${id}')">↓ PNG</button>
+    <button class="dl-btn" id="dl-${id}" style="display:none" onclick="dlFile('${id}')">&#8595; PNG</button>
   `;
   queueEl.appendChild(card);
 }
 
-function setBadge(id, status, text){
+function setBadge(id,cls,txt){
   const b=document.getElementById('badge-'+id);
-  b.className='badge badge-'+status; b.textContent=text;
+  b.className='badge badge-'+cls; b.textContent=txt;
 }
 
 function updateUI(){
-  const count = files.size;
-  queueSec.style.display = count>0?'block':'none';
-  queueCount.textContent = count+' file'+(count!==1?'s':'');
+  const n=fileMap.size;
+  queueSec.style.display=n?'block':'none';
+  queueCount.textContent=n+' file'+(n!==1?'s':'');
 }
 
 function clearQueue(){
-  files.clear(); queueEl.innerHTML='';
+  fileMap.clear(); queueEl.innerHTML='';
   progressWrap.classList.remove('active');
-  fileInput.value='';
-  updateUI();
+  fileInput.value=''; updateUI();
 }
 
 async function convertAll(){
   convertBtn.disabled=true;
-  const entries=[...files.values()].filter(e=>e.status==='pending'||e.status==='error');
-  const total=entries.length;
-  if(!total){ convertBtn.disabled=false; return; }
-
+  const todo=[...fileMap.values()].filter(e=>e.status==='pending'||e.status==='error');
+  const total=todo.length;
+  if(!total){convertBtn.disabled=false;return;}
   progressWrap.classList.add('active');
   progressBar.style.width='0%';
 
-  for(let i=0;i<entries.length;i++){
-    const entry=entries[i];
+  for(let i=0;i<todo.length;i++){
+    const entry=todo[i];
     setBadge(entry.id,'processing','CONVERTING');
-    progressLabel.textContent=`[${i+1}/${total}] ${entry.file.name}`;
-    // Yield to browser BEFORE heavy decode so badge update is visible
-    await new Promise(r=>setTimeout(r,0));
-    try {
-      const buf=await entry.file.arrayBuffer();
-      const {data,width,height,isSRGB}=decodeDDS(buf);
+    progressLabel.textContent='['+(i+1)+'/'+total+'] '+entry.file.name;
+    await new Promise(r=>setTimeout(r,0)); // yield so UI updates
 
-      // Linear DDS → gamma-encode to sRGB so PNG colors are correct
-      // sRGB DDS  → data already gamma-encoded, pass through unchanged
-      if(!isSRGB) applyLinearToSRGB(data);
+    try{
+      const buf=await entry.file.arrayBuffer();
+      const {data,width,height,isSRGB,isDataMap}=decodeDDS(buf);
+
+      // Gamma correction rules:
+      // - sRGB format  -> already gamma-encoded, pass through
+      // - data map     -> skip gamma (BC4/BC5/luminance/alpha are not color)
+      // - linear color -> apply linear->sRGB LUT before export
+      if(!isSRGB&&!isDataMap) applyL2S(data);
 
       const blob=await encodeAsPNG(data,width,height,isSRGB);
       entry.blob=blob; entry.status='done';
 
-      // Update size display and show color-space tag
-      const card=document.getElementById('card-'+entry.id);
-      const sizeEl=card.querySelector('.file-size');
-      sizeEl.textContent=width+'×'+height+' · '+formatSize(blob.size);
-      const csTag=document.createElement('span');
-      csTag.style.cssText=isSRGB
-        ? 'border:1px solid #a78bfa;color:#a78bfa;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap'
-        : 'border:1px solid #34d399;color:#34d399;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap';
-      csTag.textContent=isSRGB?'sRGB':'LINEAR→sRGB';
-      csTag.title=isSRGB
-        ? 'Source declared sRGB. PNG written with sRGB+gAMA chunks.'
-        : 'Source was linear. Applied linear→sRGB gamma before PNG export.';
-      sizeEl.after(csTag);
+      // Update card info
+      const sizeEl=document.querySelector('#card-'+entry.id+' .file-size');
+      sizeEl.textContent=width+'x'+height+' · '+fmtSize(blob.size);
+      const tag=document.createElement('span');
+      const isNorm=isDataMap&&!isSRGB;
+      tag.style.cssText=isNorm
+        ?'border:1px solid #94a3b8;color:#94a3b8;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap'
+        :isSRGB
+          ?'border:1px solid #a78bfa;color:#a78bfa;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap'
+          :'border:1px solid #34d399;color:#34d399;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap';
+      tag.textContent=isNorm?'DATA':isSRGB?'sRGB':'LIN>sRGB';
+      tag.title=isNorm?'Data map (normal/roughness) - no gamma applied':
+                isSRGB?'sRGB source - PNG written with sRGB+gAMA chunks':
+                       'Linear source - converted to sRGB for PNG export';
+      sizeEl.after(tag);
 
       setBadge(entry.id,'done','DONE');
       document.getElementById('dl-'+entry.id).style.display='inline-block';
-    } catch(err){
+    }catch(err){
       entry.status='error';
-      const badge=document.getElementById('badge-'+entry.id);
-      badge.className='badge badge-error';
-      badge.textContent='ERROR';
-      badge.title=err.message; // hover to see reason
-      console.error('[DDS]', entry.file.name, err);
+      const b=document.getElementById('badge-'+entry.id);
+      b.className='badge badge-error'; b.textContent='ERROR'; b.title=err.message;
+      console.error('[DDS]',entry.file.name,err);
     }
+
     progressBar.style.width=((i+1)/total*100)+'%';
-    // Extra yield every 5 files to keep UI responsive on large batches
     if(i%5===4) await new Promise(r=>setTimeout(r,10));
   }
 
-  const doneCount=[...files.values()].filter(e=>e.status==='done').length;
-  const errCount=[...files.values()].filter(e=>e.status==='error').length;
-  progressLabel.textContent=`Done — ${doneCount}/${total} converted${errCount?' · '+errCount+' error(s), hover badge for details':''}`;
+  const done=[...fileMap.values()].filter(e=>e.status==='done').length;
+  const errs=[...fileMap.values()].filter(e=>e.status==='error').length;
+  progressLabel.textContent='Done - '+done+'/'+total+' converted'+(errs?' · '+errs+' error(s), hover badge':'');
   convertBtn.disabled=false;
 }
 
-function downloadFile(id){
-  const entry=files.get(id);
-  if(!entry||!entry.blob) return;
+function dlFile(id){
+  const e=fileMap.get(id);
+  if(!e||!e.blob) return;
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(entry.blob);
-  a.download=entry.file.name.replace(/\.dds$/i,'.png');
+  a.href=URL.createObjectURL(e.blob);
+  a.download=e.file.name.replace(/\.dds$/i,'.png');
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
