@@ -397,186 +397,252 @@
 
 </div>
 
-<!-- squish (DDS parser) from CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/squish/1.0.1/squish.min.js"></script>
-
 <script>
-// ── Minimal DDS decoder (no external dep needed) ────────────────────────────
-// Supports: DXT1/3/5, BC4/5, uncompressed RGBA/BGRA/RGB/A8/L8
+// ── DDS Decoder ──────────────────────────────────────────────────────────────
+// Supports: DXT1/3/5, BC4/5, uncompressed RGBA/BGRA/RGB/A8/L8, DX10 header
 
-const DDSD_CAPS=0x1,DDSD_HEIGHT=0x2,DDSD_WIDTH=0x4,DDSD_PITCH=0x8,
-      DDSD_PIXELFORMAT=0x1000,DDSD_MIPMAPCOUNT=0x20000,DDSD_LINEARSIZE=0x80000;
-const DDPF_ALPHAPIXELS=0x1,DDPF_ALPHA=0x2,DDPF_FOURCC=0x4,
-      DDPF_RGB=0x40,DDPF_LUMINANCE=0x20000;
-const FOURCC_DXT1=0x31545844,FOURCC_DXT3=0x33545844,FOURCC_DXT5=0x35545844;
-const FOURCC_BC4U=0x55344342,FOURCC_BC4S=0x53344342;
-const FOURCC_BC5U=0x55354342,FOURCC_BC5S=0x53354342;
-const FOURCC_ATI1=0x31495441,FOURCC_ATI2=0x32495441;
+const DDPF_ALPHAPIXELS=0x1, DDPF_ALPHA=0x2, DDPF_FOURCC=0x4,
+      DDPF_RGB=0x40, DDPF_LUMINANCE=0x20000;
+const FOURCC_DXT1=0x31545844, FOURCC_DXT3=0x33545844, FOURCC_DXT5=0x35545844;
+const FOURCC_BC4U=0x55344342, FOURCC_BC4S=0x53344342;
+const FOURCC_BC5U=0x55354342, FOURCC_BC5S=0x53354342;
+const FOURCC_ATI1=0x31495441, FOURCC_ATI2=0x32495441;
 const FOURCC_DX10=0x30315844;
 
-function makeFourCC(s){ return s.charCodeAt(0)|(s.charCodeAt(1)<<8)|(s.charCodeAt(2)<<16)|(s.charCodeAt(3)<<24); }
+// ── RGB565 unpack ─────────────────────────────────────────────────────────────
+function unpackRGB565(c){
+  return [(c>>11&0x1f)*255/31|0, (c>>5&0x3f)*255/63|0, (c&0x1f)*255/31|0];
+}
 
-// DXT color block decode helpers
-function unpackRGB565(c){ return [(c>>11)*255/31|0, ((c>>5)&63)*255/63|0, (c&31)*255/31|0]; }
+// ── DXT1 color block ──────────────────────────────────────────────────────────
+// FIX: use unsigned 32-bit read to avoid JS signed integer overflow on byte[7]
+function decodeDXT1Block(src, off, dst, bx, by, w, h){
+  const c0 = src[off]|(src[off+1]<<8);
+  const c1 = src[off+2]|(src[off+3]<<8);
+  // FIX: read 4 bytes as uint32 with >>> 0 to keep unsigned, avoid *16777216 overflow
+  const bits = (src[off+4]|(src[off+5]<<8)|(src[off+6]<<16)|(src[off+7]<<24))>>>0;
 
-function decodeDXT1Block(src, off, dst, bx, by, w){
-  const c0=src[off]|(src[off+1]<<8), c1=src[off+2]|(src[off+3]<<8);
-  let bits = src[off+4]|(src[off+5]<<8)|(src[off+6]<<16)|(src[off+7]*16777216);
-  const col=[[],[],[],[]];
-  col[0]=unpackRGB565(c0); col[1]=unpackRGB565(c1);
-  if(c0>c1){
-    col[2]=col[0].map((v,i)=>((2*v+col[1][i])/3|0));
-    col[3]=col[0].map((v,i)=>((v+2*col[1][i])/3|0));
+  const col = [unpackRGB565(c0), unpackRGB565(c1), [], []];
+  if(c0 > c1){
+    col[2] = col[0].map((v,i)=> (2*v + col[1][i] + 1) /3 |0);
+    col[3] = col[0].map((v,i)=> (v  + 2*col[1][i] + 1)/3 |0);
   } else {
-    col[2]=col[0].map((v,i)=>((v+col[1][i])>>1));
-    col[3]=[0,0,0];
+    col[2] = col[0].map((v,i)=> (v + col[1][i]) >>1);
+    col[3] = [0,0,0]; // transparent black for DXT1 punch-through alpha
   }
-  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
-    const idx=(bits>>((py*4+px)*2))&3;
+
+  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
     const dx=bx+px, dy=by+py;
-    if(dx<w){
-      const p=(dy*w+dx)*4;
-      dst[p]=col[idx][0]; dst[p+1]=col[idx][1]; dst[p+2]=col[idx][2];
-      dst[p+3]=(c0<=c1&&idx===3)?0:255;
-    }
+    if(dx>=w || dy>=h) continue; // FIX: bounds check both x AND y
+    const idx = (bits >>> ((py*4+px)*2)) & 3;
+    const p   = (dy*w+dx)*4;
+    dst[p]   = col[idx][0];
+    dst[p+1] = col[idx][1];
+    dst[p+2] = col[idx][2];
+    dst[p+3] = (c0<=c1 && idx===3) ? 0 : 255;
   }
 }
 
-function decodeDXT3Block(src, off, dst, bx, by, w){
-  // 8 bytes alpha, 8 bytes color
-  const alphaBlock=src.slice(off, off+8);
-  decodeDXT1Block(src, off+8, dst, bx, by, w);
-  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+// ── DXT3 explicit alpha block ─────────────────────────────────────────────────
+function decodeDXT3Block(src, off, dst, bx, by, w, h){
+  decodeDXT1Block(src, off+8, dst, bx, by, w, h);
+  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
+    const dx=bx+px, dy=by+py;
+    if(dx>=w || dy>=h) continue;
     const ai = py*4+px;
-    const ab = alphaBlock[ai>>1];
-    const a = (ai&1)?(ab>>4):(ab&0xf);
-    const dx=bx+px, dy=by+py;
-    if(dx<w) dst[(dy*w+dx)*4+3] = (a*255/15)|0;
+    const ab = src[off + (ai>>1)];
+    const a  = (ai&1) ? (ab>>4) : (ab&0xf);
+    dst[(dy*w+dx)*4+3] = (a*255/15)|0;
   }
 }
 
+// ── DXT5 / BC4 / BC5 alpha block ─────────────────────────────────────────────
+// FIX: replaced BigInt with two 32-bit integer reads — much faster, no BigInt overhead
 function decodeDXT5Alpha(src, off){
   const a0=src[off], a1=src[off+1];
   const table=[a0,a1];
-  if(a0>a1){ for(let i=2;i<8;i++) table[i]=((8-i)*a0+(i-1)*a1)/7|0; }
-  else { for(let i=2;i<6;i++) table[i]=((6-i)*a0+(i-1)*a1)/5|0; table[6]=0; table[7]=255; }
-  // 6 bytes of 3-bit indices
-  let bits=BigInt(0);
-  for(let i=0;i<6;i++) bits|=(BigInt(src[off+2+i])<<BigInt(i*8));
-  const alphas=[];
-  for(let i=0;i<16;i++) alphas.push(table[Number((bits>>BigInt(i*3))&BigInt(7))]);
+  if(a0>a1){ for(let i=2;i<8;i++) table[i]= ((8-i)*a0 + (i-1)*a1) /7 |0; }
+  else      { for(let i=2;i<6;i++) table[i]= ((6-i)*a0 + (i-1)*a1) /5 |0; table[6]=0; table[7]=255; }
+
+  // Read 6 bytes as two 32-bit halves to avoid BigInt
+  const lo = (src[off+2]|(src[off+3]<<8)|(src[off+4]<<16)|(src[off+5]<<24))>>>0; // bits 0..31
+  const hi = (src[off+6]|(src[off+7]<<8))>>>0;                                     // bits 32..47
+
+  const alphas = new Uint8Array(16);
+  for(let i=0; i<16; i++){
+    const bitPos = i*3;
+    let idx;
+    if(bitPos < 30){
+      idx = (lo >>> bitPos) & 7;
+    } else if(bitPos === 30){
+      // straddles the 32-bit boundary: 2 bits from lo, 1 from hi
+      idx = ((lo>>>30) | ((hi&1)<<2)) & 7;
+    } else {
+      idx = (hi >>> (bitPos-32)) & 7;
+    }
+    alphas[i] = table[idx];
+  }
   return alphas;
 }
 
-function decodeDXT5Block(src, off, dst, bx, by, w){
-  const alphas=decodeDXT5Alpha(src, off);
-  decodeDXT1Block(src, off+8, dst, bx, by, w);
-  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+function decodeDXT5Block(src, off, dst, bx, by, w, h){
+  const alphas = decodeDXT5Alpha(src, off);
+  decodeDXT1Block(src, off+8, dst, bx, by, w, h);
+  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
     const dx=bx+px, dy=by+py;
-    if(dx<w) dst[(dy*w+dx)*4+3]=alphas[py*4+px];
+    if(dx>=w || dy>=h) continue; // FIX: bounds check y too
+    dst[(dy*w+dx)*4+3] = alphas[py*4+px];
   }
 }
 
-function decodeBC4Block(src, off, dst, bx, by, w, channel){
-  const alphas=decodeDXT5Alpha(src, off);
-  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+function decodeBC4Block(src, off, dst, bx, by, w, h){
+  const alphas = decodeDXT5Alpha(src, off);
+  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
     const dx=bx+px, dy=by+py;
-    if(dx<w){ const p=(dy*w+dx)*4; const v=alphas[py*4+px]; dst[p]=v; dst[p+1]=v; dst[p+2]=v; dst[p+3]=255; }
+    if(dx>=w || dy>=h) continue;
+    const p=(dy*w+dx)*4, v=alphas[py*4+px];
+    dst[p]=v; dst[p+1]=v; dst[p+2]=v; dst[p+3]=255;
   }
 }
 
-function decodeBC5Block(src, off, dst, bx, by, w){
-  const r=decodeDXT5Alpha(src, off);
-  const g=decodeDXT5Alpha(src, off+8);
-  for(let py=0;py<4;py++) for(let px=0;px<4;px++){
+function decodeBC5Block(src, off, dst, bx, by, w, h){
+  const r = decodeDXT5Alpha(src, off);
+  const g = decodeDXT5Alpha(src, off+8);
+  for(let py=0; py<4; py++) for(let px=0; px<4; px++){
     const dx=bx+px, dy=by+py;
-    if(dx<w){ const p=(dy*w+dx)*4; dst[p]=r[py*4+px]; dst[p+1]=g[py*4+px]; dst[p+2]=0; dst[p+3]=255; }
+    if(dx>=w || dy>=h) continue;
+    const p=(dy*w+dx)*4;
+    dst[p]=r[py*4+px]; dst[p+1]=g[py*4+px]; dst[p+2]=0; dst[p+3]=255;
   }
 }
 
+// ── Mask helpers for uncompressed ────────────────────────────────────────────
+// FIX: correct popcount-based bit-depth from mask, old logic was wrong
+function maskShift(m){ if(!m) return 0; let s=0; let v=m; while(!(v&1)){v>>>=1;s++;} return s; }
+function maskMax(m){
+  if(!m) return 255;
+  // count set bits to get bit depth, then max = 2^depth - 1
+  let v=m>>>maskShift(m), bits=0;
+  while(v){bits+=v&1;v>>>=1;}
+  return (1<<bits)-1;
+}
+
+// ── sRGB ↔ Linear conversion tables (build once at startup) ──────────────────
+// DDS _SRGB formats store gamma-encoded data. PNG + sRGB color space = same.
+// DDS _UNORM / legacy DXT = linear data. We need to convert to sRGB before
+// writing to PNG so viewers/engines interpret colors correctly.
+//
+// RULE:
+//   _SRGB format  → data is already sRGB-encoded → copy bytes straight to PNG
+//   _UNORM / legacy DXT → data is linear → apply linear→sRGB before PNG export
+//
+// We pre-build a 256-entry LUT for linear uint8 → sRGB uint8 conversion.
+const LINEAR_TO_SRGB = new Uint8Array(256);
+(function buildLUT(){
+  for(let i=0;i<256;i++){
+    let l=i/255;
+    // IEC 61966-2-1 linearisation formula
+    let s = l<=0.0031308 ? l*12.92 : 1.055*Math.pow(l,1/2.4)-0.055;
+    LINEAR_TO_SRGB[i] = Math.round(Math.min(1,Math.max(0,s))*255);
+  }
+})();
+
+// Apply linear→sRGB to RGB channels only (skip alpha at index+3)
+function applyLinearToSRGB(data){
+  for(let i=0;i<data.length;i+=4){
+    data[i]  = LINEAR_TO_SRGB[data[i]];
+    data[i+1]= LINEAR_TO_SRGB[data[i+1]];
+    data[i+2]= LINEAR_TO_SRGB[data[i+2]];
+    // alpha is always linear — do not convert
+  }
+}
+
+// ── Main DDS decoder ─────────────────────────────────────────────────────────
+// Returns { data, width, height, isSRGB }
+// isSRGB=true  → pixel data is already sRGB-encoded (from _SRGB format)
+// isSRGB=false → pixel data is linear (classic DXT / _UNORM)
 function decodeDDS(buffer){
-  const view = new DataView(buffer);
+  const view  = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
 
-  if(view.getUint32(0,true)!==0x20534444) throw new Error('Not a valid DDS file');
-  const size=view.getUint32(4,true);
-  if(size!==124) throw new Error('Invalid DDS header size');
+  if(view.getUint32(0,true) !== 0x20534444) throw new Error('Not a valid DDS file (bad magic)');
+  if(view.getUint32(4,true) !== 124)        throw new Error('Invalid DDS header size');
 
-  const flags=view.getUint32(8,true);
-  const height=view.getUint32(12,true);
-  const width=view.getUint32(16,true);
+  const height = view.getUint32(12,true);
+  const width  = view.getUint32(16,true);
+  if(!width || !height) throw new Error('Invalid dimensions');
 
-  const pfOff=76;
-  const pfSize=view.getUint32(pfOff,true);
-  const pfFlags=view.getUint32(pfOff+4,true);
-  const fourCC=view.getUint32(pfOff+8,true);
-  const rgbBitCount=view.getUint32(pfOff+12,true);
-  const rMask=view.getUint32(pfOff+16,true);
-  const gMask=view.getUint32(pfOff+20,true);
-  const bMask=view.getUint32(pfOff+24,true);
-  const aMask=view.getUint32(pfOff+28,true);
+  const pfOff      = 76;
+  const pfFlags    = view.getUint32(pfOff+4, true);
+  const fourCC     = view.getUint32(pfOff+8, true);
+  const rgbBitCount= view.getUint32(pfOff+12,true);
+  const rMask      = view.getUint32(pfOff+16,true)>>>0;
+  const gMask      = view.getUint32(pfOff+20,true)>>>0;
+  const bMask      = view.getUint32(pfOff+24,true)>>>0;
+  const aMask      = view.getUint32(pfOff+28,true)>>>0;
 
-  const dataOffset = 128;
+  const isDX10 = (pfFlags & DDPF_FOURCC) && fourCC === FOURCC_DX10;
+  const dataOffset = isDX10 ? 148 : 128;
   const src = bytes.subarray(dataOffset);
   const dst = new Uint8ClampedArray(width*height*4);
+  const blocksWide = Math.ceil(width/4)|0;
+
+  // Track whether the format declares sRGB encoding
+  let isSRGB = false;
 
   if(pfFlags & DDPF_FOURCC){
     if(fourCC===FOURCC_DXT1){
+      // Legacy DXT1 has no sRGB flag → linear data
       for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=((by/4*(Math.ceil(width/4))+(bx/4))*8)|0;
-        decodeDXT1Block(src,off,dst,bx,by,width);
+        const off=(((by>>2)*blocksWide+(bx>>2))*8)|0;
+        decodeDXT1Block(src,off,dst,bx,by,width,height);
       }
     } else if(fourCC===FOURCC_DXT3){
       for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
-        decodeDXT3Block(src,off,dst,bx,by,width);
+        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
+        decodeDXT3Block(src,off,dst,bx,by,width,height);
       }
     } else if(fourCC===FOURCC_DXT5){
       for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
-        decodeDXT5Block(src,off,dst,bx,by,width);
+        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
+        decodeDXT5Block(src,off,dst,bx,by,width,height);
       }
     } else if(fourCC===FOURCC_ATI1||fourCC===FOURCC_BC4U||fourCC===FOURCC_BC4S){
       for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=((by/4*(Math.ceil(width/4))+(bx/4))*8)|0;
-        decodeBC4Block(src,off,dst,bx,by,width,0);
+        const off=(((by>>2)*blocksWide+(bx>>2))*8)|0;
+        decodeBC4Block(src,off,dst,bx,by,width,height);
       }
     } else if(fourCC===FOURCC_ATI2||fourCC===FOURCC_BC5U||fourCC===FOURCC_BC5S){
       for(let by=0;by<height;by+=4) for(let bx=0;bx<width;bx+=4){
-        const off=((by/4*(Math.ceil(width/4))+(bx/4))*16)|0;
-        decodeBC5Block(src,off,dst,bx,by,width);
+        const off=(((by>>2)*blocksWide+(bx>>2))*16)|0;
+        decodeBC5Block(src,off,dst,bx,by,width,height);
       }
-    } else if(fourCC===FOURCC_DX10){
-      // DX10 header
+    } else if(isDX10){
       const dxgiFormat=view.getUint32(128,true);
-      const src2=bytes.subarray(148);
-      decodeDX10(dxgiFormat,src2,dst,width,height);
+      isSRGB=decodeDX10(dxgiFormat,src,dst,width,height);
     } else {
-      throw new Error('Unsupported FourCC: '+fourCC.toString(16));
+      throw new Error('Unsupported FourCC: 0x'+fourCC.toString(16).toUpperCase());
     }
   } else if(pfFlags & DDPF_RGB){
-    // Uncompressed
-    const bytesPerPixel = rgbBitCount/8|0;
-    function maskToShift(m){ if(!m)return 0; let s=0; while(!(m&1)){m>>=1;s++;} return s; }
-    function maskToMax(m){ if(!m)return 1; let v=m; while(v&(v-1)) v=v&(v-1); return v>>maskToShift(m); }
-    const rs=maskToShift(rMask), gs=maskToShift(gMask), bs=maskToShift(bMask), as=maskToShift(aMask);
-    const rm=maskToMax(rMask)||255, gm=maskToMax(gMask)||255, bm=maskToMax(bMask)||255, am=maskToMax(aMask)||255;
+    const bpp=(rgbBitCount/8)|0;
+    if(bpp<1||bpp>4) throw new Error('Invalid RGB bit count: '+rgbBitCount);
+    const rs=maskShift(rMask),gs=maskShift(gMask),bs=maskShift(bMask),as=maskShift(aMask);
+    const rm=maskMax(rMask),  gm=maskMax(gMask),  bm=maskMax(bMask),  am=maskMax(aMask);
     for(let y=0;y<height;y++) for(let x=0;x<width;x++){
-      const si=(y*width+x)*bytesPerPixel;
-      let px=0;
-      for(let b=0;b<bytesPerPixel;b++) px|=(src[si+b]<<(b*8));
+      const si=(y*width+x)*bpp;
+      let val=0;
+      for(let b=0;b<bpp;b++) val=(val|(src[si+b]<<(b*8)))>>>0;
       const di=(y*width+x)*4;
-      dst[di]=rMask?((px&rMask)>>rs)*255/rm|0:0;
-      dst[di+1]=gMask?((px&gMask)>>gs)*255/gm|0:0;
-      dst[di+2]=bMask?((px&bMask)>>bs)*255/bm|0:0;
-      dst[di+3]=aMask?((px&aMask)>>as)*255/am|0:255;
+      dst[di]  =rMask?((val&rMask)>>>rs)*255/rm|0:0;
+      dst[di+1]=gMask?((val&gMask)>>>gs)*255/gm|0:0;
+      dst[di+2]=bMask?((val&bMask)>>>bs)*255/bm|0:0;
+      dst[di+3]=aMask?((val&aMask)>>>as)*255/am|0:255;
     }
+    // Uncompressed DDS with no explicit sRGB flag = treat as linear
   } else if(pfFlags & DDPF_LUMINANCE){
-    const bytesPerPixel = rgbBitCount/8|0;
+    const bpp=(rgbBitCount/8)|0||1;
     for(let y=0;y<height;y++) for(let x=0;x<width;x++){
-      const si=(y*width+x)*bytesPerPixel;
-      const v=src[si];
-      const di=(y*width+x)*4;
+      const si=(y*width+x)*bpp,v=src[si],di=(y*width+x)*4;
       dst[di]=dst[di+1]=dst[di+2]=v; dst[di+3]=255;
     }
   } else if(pfFlags & DDPF_ALPHA){
@@ -584,23 +650,157 @@ function decodeDDS(buffer){
       dst[i*4]=dst[i*4+1]=dst[i*4+2]=0; dst[i*4+3]=src[i];
     }
   } else {
-    throw new Error('Unsupported pixel format');
+    throw new Error('Unsupported pixel format flags: 0x'+pfFlags.toString(16));
   }
 
-  return { data: dst, width, height };
+  return { data:dst, width, height, isSRGB };
 }
 
+// ── DX10 extended format decoder ─────────────────────────────────────────────
+// Returns true if the format is tagged as sRGB (data is already gamma-encoded)
 function decodeDX10(fmt, src, dst, w, h){
-  // DXGI_FORMAT partial support
-  if(fmt===28||fmt===29){ // RGBA8_UNORM / RGBA8_UNORM_SRGB
-    for(let i=0;i<w*h*4;i++) dst[i]=src[i];
-  } else if(fmt===87||fmt===88){ // BGRA8
-    for(let i=0;i<w*h;i++){
-      dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1]; dst[i*4+2]=src[i*4]; dst[i*4+3]=src[i*4+3];
+  const n=w*h;
+  // DXGI sRGB variants: 29=R8G8B8A8_UNORM_SRGB, 71=BC1_UNORM_SRGB,
+  // 74=BC2_UNORM_SRGB, 77=BC3_UNORM_SRGB, 91=B8G8R8A8_UNORM_SRGB, 93=B8G8R8X8_UNORM_SRGB
+  const srgbFormats=new Set([29,71,74,77,91,93]);
+  const isSRGB=srgbFormats.has(fmt);
+
+  switch(fmt){
+    // ── RGBA8 UNORM / SRGB ──
+    case 28: case 29:
+      for(let i=0;i<n*4;i++) dst[i]=src[i];
+      break;
+    // ── BGRA8 UNORM / SRGB ──
+    case 87: case 91:
+      for(let i=0;i<n;i++){
+        dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1];
+        dst[i*4+2]=src[i*4]; dst[i*4+3]=src[i*4+3];
+      }
+      break;
+    // ── BGRX8 UNORM / SRGB (no alpha) ──
+    case 88: case 93:
+      for(let i=0;i<n;i++){
+        dst[i*4]=src[i*4+2]; dst[i*4+1]=src[i*4+1];
+        dst[i*4+2]=src[i*4]; dst[i*4+3]=255;
+      }
+      break;
+    // ── BC1 UNORM / SRGB ──
+    case 70: case 71: {
+      const bw=Math.ceil(w/4)|0;
+      for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
+        decodeDXT1Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
+      break;
     }
-  } else {
-    throw new Error('Unsupported DXGI format: '+fmt);
+    // ── BC2 UNORM / SRGB ──
+    case 73: case 74: {
+      const bw=Math.ceil(w/4)|0;
+      for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
+        decodeDXT3Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+      break;
+    }
+    // ── BC3 UNORM / SRGB ──
+    case 76: case 77: {
+      const bw=Math.ceil(w/4)|0;
+      for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
+        decodeDXT5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+      break;
+    }
+    // ── BC4 UNORM / SNORM ──
+    case 79: case 80: {
+      const bw=Math.ceil(w/4)|0;
+      for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
+        decodeBC4Block(src,(((by>>2)*bw+(bx>>2))*8)|0,dst,bx,by,w,h);
+      break;
+    }
+    // ── BC5 UNORM / SNORM ──
+    case 82: case 83: {
+      const bw=Math.ceil(w/4)|0;
+      for(let by=0;by<h;by+=4) for(let bx=0;bx<w;bx+=4)
+        decodeBC5Block(src,(((by>>2)*bw+(bx>>2))*16)|0,dst,bx,by,w,h);
+      break;
+    }
+    // ── R8 greyscale ──
+    case 61:
+      for(let i=0;i<n;i++){const v=src[i];dst[i*4]=v;dst[i*4+1]=v;dst[i*4+2]=v;dst[i*4+3]=255;}
+      break;
+    // ── RG8 ──
+    case 49:
+      for(let i=0;i<n;i++){dst[i*4]=src[i*2];dst[i*4+1]=src[i*2+1];dst[i*4+2]=0;dst[i*4+3]=255;}
+      break;
+    default:
+      throw new Error('Unsupported DXGI_FORMAT: '+fmt+' — please report this');
   }
+  return isSRGB;
+}
+
+// ── PNG encoder with embedded sRGB chunk ─────────────────────────────────────
+// Standard canvas.toBlob does NOT embed sRGB chunk by spec.
+// We manually inject the PNG sRGB chunk (1 byte rendering intent = 0 = Perceptual)
+// and gAMA chunk (gamma = 45455 ≈ 1/2.2 which is the sRGB approximation)
+// so ICC-aware tools (Photoshop, Unity, Unreal) read the file correctly.
+async function encodeAsPNG(data, width, height, isSRGB){
+  const canvas = document.createElement('canvas');
+  canvas.width=width; canvas.height=height;
+  const ctx = canvas.getContext('2d', {colorSpace:'srgb'});
+
+  // ImageData colorSpace hint (supported in Chrome 92+, Firefox 99+)
+  let imgData;
+  try {
+    imgData = new ImageData(data, width, height, {colorSpace:'srgb'});
+  } catch(_){
+    imgData = new ImageData(data, width, height);
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // Get raw PNG bytes from canvas
+  const rawBlob = await new Promise((res,rej)=>
+    canvas.toBlob(b=>b?res(b):rej(new Error('toBlob returned null')), 'image/png')
+  );
+  const rawBuf = await rawBlob.arrayBuffer();
+  const raw = new Uint8Array(rawBuf);
+
+  if(!isSRGB){
+    // Linear data: do NOT add sRGB/gAMA chunks — emit as-is
+    return rawBlob;
+  }
+
+  // Inject sRGB + gAMA chunks right after the PNG signature+IHDR
+  // PNG structure: 8-byte sig | IHDR(4+4+13+4=25 bytes) | ... | IEND
+  // We insert our chunks right after IHDR (offset 33)
+  const INSERT_OFFSET = 33;
+
+  // Build sRGB chunk: length(4) + type(4) + data(1) + crc(4) = 13 bytes
+  function crc32(buf, off, len){
+    let c=0xFFFFFFFF;
+    const t=[0,1996959894,3993919788,2567524794,124634137,1886057615,3915621685,
+             2657392035,249268274,2044508324,3772115230,2547177864,162941995,
+             2125561021,3887607047,2428444049];
+    for(let i=0;i<len;i++){
+      const b=buf[off+i];
+      c=(c>>>4)^t[(c^(b))&0xf];
+      c=(c>>>4)^t[(c^(b>>4))&0xf];
+    }
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  function u32be(v){ return [(v>>>24)&0xff,(v>>>16)&0xff,(v>>>8)&0xff,v&0xff]; }
+
+  // sRGB chunk (rendering intent = 0 = Perceptual)
+  const srgbData=[0x73,0x52,0x47,0x42,0]; // type "sRGB" + 1 byte intent
+  const srgbCRC=crc32(new Uint8Array(srgbData),0,5);
+  const srgbChunk=[...u32be(1),...srgbData,...u32be(srgbCRC)]; // 13 bytes
+
+  // gAMA chunk: gamma = 45455 (represents ~1/2.2, sRGB standard)
+  const gamaData=[0x67,0x41,0x4D,0x41,...u32be(45455)]; // type "gAMA" + uint32
+  const gamaCRC=crc32(new Uint8Array(gamaData),0,8);
+  const gamaChunk=[...u32be(4),...gamaData,...u32be(gamaCRC)]; // 16 bytes
+
+  const extra=new Uint8Array([...srgbChunk,...gamaChunk]);
+  const out=new Uint8Array(raw.length+extra.length);
+  out.set(raw.subarray(0,INSERT_OFFSET),0);
+  out.set(extra,INSERT_OFFSET);
+  out.set(raw.subarray(INSERT_OFFSET),INSERT_OFFSET+extra.length);
+
+  return new Blob([out],{type:'image/png'});
 }
 
 // ── App state ────────────────────────────────────────────────────────────────
@@ -679,27 +879,51 @@ async function convertAll(){
     const entry=entries[i];
     setBadge(entry.id,'processing','CONVERTING');
     progressLabel.textContent=`[${i+1}/${total}] ${entry.file.name}`;
+    // Yield to browser BEFORE heavy decode so badge update is visible
+    await new Promise(r=>setTimeout(r,0));
     try {
       const buf=await entry.file.arrayBuffer();
-      const {data,width,height}=decodeDDS(buf);
-      const canvas=document.createElement('canvas');
-      canvas.width=width; canvas.height=height;
-      const ctx=canvas.getContext('2d');
-      ctx.putImageData(new ImageData(data,width,height),0,0);
-      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      const {data,width,height,isSRGB}=decodeDDS(buf);
+
+      // Linear DDS → gamma-encode to sRGB so PNG colors are correct
+      // sRGB DDS  → data already gamma-encoded, pass through unchanged
+      if(!isSRGB) applyLinearToSRGB(data);
+
+      const blob=await encodeAsPNG(data,width,height,isSRGB);
       entry.blob=blob; entry.status='done';
+
+      // Update size display and show color-space tag
+      const card=document.getElementById('card-'+entry.id);
+      const sizeEl=card.querySelector('.file-size');
+      sizeEl.textContent=width+'×'+height+' · '+formatSize(blob.size);
+      const csTag=document.createElement('span');
+      csTag.style.cssText=isSRGB
+        ? 'border:1px solid #a78bfa;color:#a78bfa;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap'
+        : 'border:1px solid #34d399;color:#34d399;font-family:Share Tech Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:2px;white-space:nowrap';
+      csTag.textContent=isSRGB?'sRGB':'LINEAR→sRGB';
+      csTag.title=isSRGB
+        ? 'Source declared sRGB. PNG written with sRGB+gAMA chunks.'
+        : 'Source was linear. Applied linear→sRGB gamma before PNG export.';
+      sizeEl.after(csTag);
+
       setBadge(entry.id,'done','DONE');
       document.getElementById('dl-'+entry.id).style.display='inline-block';
     } catch(err){
       entry.status='error';
-      setBadge(entry.id,'error','ERROR');
-      console.error(entry.file.name, err);
+      const badge=document.getElementById('badge-'+entry.id);
+      badge.className='badge badge-error';
+      badge.textContent='ERROR';
+      badge.title=err.message; // hover to see reason
+      console.error('[DDS]', entry.file.name, err);
     }
     progressBar.style.width=((i+1)/total*100)+'%';
-    await new Promise(r=>setTimeout(r,0));
+    // Extra yield every 5 files to keep UI responsive on large batches
+    if(i%5===4) await new Promise(r=>setTimeout(r,10));
   }
 
-  progressLabel.textContent=`Done — ${entries.filter(e=>e.status==='done').length}/${total} converted`;
+  const doneCount=[...files.values()].filter(e=>e.status==='done').length;
+  const errCount=[...files.values()].filter(e=>e.status==='error').length;
+  progressLabel.textContent=`Done — ${doneCount}/${total} converted${errCount?' · '+errCount+' error(s), hover badge for details':''}`;
   convertBtn.disabled=false;
 }
 
